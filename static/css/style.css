@@ -1,0 +1,83 @@
+:root { --sidebar-w:240px; --primary:#1a6fad; --accent:#0e9f8b; --light-bg:#f0f6fb; }
+body { background:var(--light-bg); font-family:'Segoe UI',sans-serif; }
+body.dark-mode { background:#1a1a2e; color:#e0e0e0; }
+body.dark-mode .card { background:#2a2a3e; color:#e0e0e0; border-color:#3a3a4e; }
+body.dark-mode #topbar { background:#2a2a3e; border-color:#3a3a4e; }
+
+#sidebar { width:var(--sidebar-w); min-height:100vh; background:linear-gradient(180deg,#0f3f6e,#1a6fad); position:fixed; top:0; left:0; z-index:1000; display:flex; flex-direction:column; transition:transform .25s; }
+#sidebar .brand { padding:1.2rem 1rem; border-bottom:1px solid rgba(255,255,255,.15); text-align:center; }
+#sidebar .brand h5 { color:#fff; margin:0; font-weight:700; font-size:1.1rem; }
+#sidebar .brand small { color:rgba(255,255,255,.65); font-size:.72rem; }
+#sidebar .nav-link { color:rgba(255,255,255,.8); border-radius:8px; margin:2px 12px; padding:9px 14px; display:flex; align-items:center; gap:10px; font-size:.88rem; }
+#sidebar .nav-link:hover, #sidebar .nav-link.active { background:rgba(255,255,255,.18); color:#fff; }
+#sidebar .nav-label { color:rgba(255,255,255,.45); font-size:.7rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; padding:1rem 1.5rem .3rem; }
+#sidebar .sidebar-footer { margin-top:auto; padding:.8rem 1rem; border-top:1px solid rgba(255,255,255,.12); font-size:.78rem; color:rgba(255,255,255,.5); text-align:center; }
+
+#topbar { margin-left:var(--sidebar-w); height:58px; background:#fff; border-bottom:1px solid #dce8f3; display:flex; align-items:center; padding:0 1.5rem; justify-content:space-between; position:sticky; top:0; z-index:900; }
+#topbar .page-title { font-weight:600; color:#1a3551; margin:0; font-size:1rem; }
+#topbar .user-pill { background:var(--light-bg); border-radius:20px; padding:5px 14px; font-size:.82rem; color:#1a3551; display:flex; align-items:center; gap:8px; }
+#main { margin-left:var(--sidebar-w); padding:1.5rem; min-height:100vh; }
+
+.role-badge { font-size:.65rem; padding:2px 7px; border-radius:10px; font-weight:600; }
+.role-doctor { background:#cff0e8; color:#0e7a6a; }
+.role-sister { background:#dce8ff; color:#2d5fd0; }
+.role-patient { background:#fde8c8; color:#b85c00; }
+
+.card { border:none; border-radius:12px; box-shadow:0 2px 12px rgba(26,63,110,.07); }
+.card-header { border-bottom:1px solid #e8eff7; background:#fff; border-radius:12px 12px 0 0 !important; padding:.9rem 1.2rem; }
+.stat-card { border-radius:14px; padding:1.2rem 1.4rem; color:#fff; position:relative; overflow:hidden; }
+.stat-card .icon { font-size:2.5rem; opacity:.25; position:absolute; right:14px; bottom:8px; }
+.stat-card h2 { font-size:2rem; font-weight:700; margin:0; }
+.stat-card small { font-size:.8rem; opacity:.85; }
+
+.ac-box { position:absolute; z-index:999; background:#fff; border:1px solid #c8ddf0; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,.1); min-width:280px; max-height:220px; overflow-y:auto; display:none; }
+.ac-item { padding:8px 14px; cursor:pointer; font-size:.875rem; border-bottom:1px solid #f0f4f8; }
+.ac-item:last-child { border-bottom:none; }
+.ac-item:hover { background:var(--light-bg); color:var(--primary); }
+
+.table th { font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; color:#5a7a99; background:#f7fafd; }
+.table td { font-size:.88rem; vertical-align:middle; }
+.btn-primary { background:var(--primary); border-color:var(--primary); }
+.section-divider { border-top:2px solid #e8eff7; margin:1.5rem 0; }
+.info-row label { font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:#789ab4; margin:0; }
+.info-row p { font-weight:500; color:#1a3551; margin:0; font-size:.9rem; }
+
+@media (max-width:768px) {
+  #sidebar { transform:translateX(-100%); }
+  #sidebar.open { transform:translateX(0); }
+  #topbar, #main { margin-left:0; }
+}
+
+/* Brand icon in sidebar */
+#sidebar .brand-icon {
+  width:44px; height:44px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  margin:0 auto .6rem; color:#fff; font-size:1.4rem;
+}
+#sidebar .brand h5 { color:#fff; margin:0; font-weight:700; font-size:1rem; }
+#sidebar .brand small { color:rgba(255,255,255,.65); font-size:.7rem; }
+#sidebar .brand { padding:1.2rem 1rem; border-bottom:1px solid rgba(255,255,255,.15); text-align:center; }
+
+/* Section headers */
+.section-header{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#789ab4;font-weight:700;border-bottom:2px solid #e8eff7;padding-bottom:5px;margin:1.2rem 0 .8rem}
+.field-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:#789ab4;font-weight:700;margin:0}
+
+/* Bed cards */
+.bed-card{border:2px solid #e8eff7;border-radius:10px;padding:.7rem .8rem;min-height:80px;transition:all .15s;font-size:.8rem}
+.bed-available{background:#f0fdf4;border-color:#bbf7d0}
+.bed-occupied{background:#fef2f2;border-color:#fecaca}
+.bed-maintenance{background:#fffbeb;border-color:#fde68a}
+.bed-reserved{background:#f0f6fb;border-color:#bfdbfe}
+.bed-number{font-weight:700;font-size:.9rem;color:#1a3551}
+.bed-patient{margin-top:4px;font-size:.75rem}
+.bed-status{color:#789ab4;font-size:.75rem;margin-top:6px}
+.bed-discharge{display:block;margin-top:4px;font-size:.68rem;padding:1px 6px;border-radius:6px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;text-decoration:none;text-align:center}
+.btn-xs{font-size:.72rem;padding:1px 8px}
+
+/* Info rows */
+.info-row label{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:#789ab4;margin:0;display:block}
+.info-row p{font-weight:500;color:#1a3551;margin:0;font-size:.9rem}
+
+/* nav tabs */
+.nav-tabs .nav-link{font-size:.85rem;color:#789ab4}
+.nav-tabs .nav-link.active{color:#1a6fad;font-weight:600}

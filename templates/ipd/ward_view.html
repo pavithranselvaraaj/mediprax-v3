@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Ward View — {{ hospital.name }}{% endblock %}
+{% block page_title %}<i class="bi bi-grid-3x3 me-2 text-primary"></i>Ward &amp; Bed View{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3"><div class="stat-card" style="background:linear-gradient(135deg,#1a6fad,#2090d0)"><small>Total Beds</small><h2>{{ stats.total_beds }}</h2><i class="bi bi-grid-3x3-gap icon"></i></div></div>
+  <div class="col-6 col-md-3"><div class="stat-card" style="background:linear-gradient(135deg,#1e8449,#27ae60)"><small>Available</small><h2>{{ stats.available_beds }}</h2><i class="bi bi-check-circle icon"></i></div></div>
+  <div class="col-6 col-md-3"><div class="stat-card" style="background:linear-gradient(135deg,#e05c2a,#f08040)"><small>Occupied</small><h2>{{ stats.occupied_beds }}</h2><i class="bi bi-person-fill icon"></i></div></div>
+  <div class="col-6 col-md-3"><div class="stat-card" style="background:linear-gradient(135deg,#6a4fc8,#8e6fe0)"><small>Admitted</small><h2>{{ stats.total_admitted }}</h2><i class="bi bi-hospital icon"></i></div></div>
+</div>
+{% if session.role == 'admin' %}
+<div class="d-flex justify-content-end mb-3">
+  <a href="{{ url_for('ipd.manage_beds') }}" class="btn btn-sm btn-outline-primary" style="border-radius:8px"><i class="bi bi-gear me-1"></i>Manage Wards &amp; Beds</a>
+</div>
+{% endif %}
+{% for wd in bed_data %}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="fw-semibold text-primary"><i class="bi bi-building me-2"></i>{{ wd.ward.name }} <small class="text-muted">({{ wd.ward.ward_type }})</small></span>
+    <div class="d-flex gap-2">
+      <span class="badge" style="background:#e8f5e9;color:#2e7d32">{{ wd.available }} free</span>
+      <span class="badge" style="background:#fce8e8;color:#c0392b">{{ wd.occupied }} occupied</span>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="row g-2">
+      {% for b in wd.beds %}
+      <div class="col-6 col-md-3 col-lg-2">
+        <div class="bed-card {% if b.status=='available' %}bed-available{% elif b.status=='occupied' %}bed-occupied{% elif b.status=='maintenance' %}bed-maintenance{% else %}bed-reserved{% endif %}">
+          <div class="bed-number">{{ b.bed_number }}</div>
+          {% if b.patient_name %}
+          <div class="bed-patient">
+            <a href="{{ url_for('patients.patient_detail', pid=b.patient_id) }}" class="text-decoration-none">
+              <small class="fw-semibold">{{ b.patient_name[:15] }}</small>
+            </a>
+            <br><small style="font-size:.7rem">Adm: {{ b.admission_date[:10] if b.admission_date else '—' }}</small>
+          </div>
+          {% if session.role in ('admin','doctor') and b.adm_id %}
+          <a href="{{ url_for('ipd.discharge_patient', adm_id=b.adm_id) }}" class="btn btn-xs bed-discharge">Discharge</a>
+          {% endif %}
+          {% else %}
+          <div class="bed-status">{{ b.status|title }}</div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

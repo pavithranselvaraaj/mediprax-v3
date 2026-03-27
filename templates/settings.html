@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Hospital Settings — {{ hospital.name }}{% endblock %}
+{% block page_title %}<i class="bi bi-gear me-2 text-primary"></i>Hospital Settings{% endblock %}
+{% block content %}
+<div class="row g-4">
+
+  <!-- Settings Form -->
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header"><span class="fw-semibold text-primary"><i class="bi bi-building me-2"></i>Hospital Information</span></div>
+      <div class="card-body">
+        <form method="POST">
+
+          <h6 class="text-muted text-uppercase fw-bold mb-3" style="font-size:.72rem;letter-spacing:.08em">
+            <i class="bi bi-hospital me-1"></i>Hospital Details
+          </h6>
+          <div class="row g-3 mb-4">
+            <div class="col-md-7">
+              <label class="form-label small fw-semibold">Hospital Name <span class="text-danger">*</span></label>
+              <input type="text" name="hospital_name" class="form-control" required
+                     value="{{ s.hospital_name or '' }}" placeholder="e.g. City General Hospital"/>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small fw-semibold">Tagline / Speciality</label>
+              <input type="text" name="hospital_tagline" class="form-control"
+                     value="{{ s.hospital_tagline or '' }}" placeholder="e.g. Quality Healthcare"/>
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Address</label>
+              <textarea name="address" class="form-control" rows="2"
+                        placeholder="Full hospital address">{{ s.address or '' }}</textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Phone</label>
+              <input type="text" name="phone" class="form-control"
+                     value="{{ s.phone or '' }}" placeholder="+91 99999 99999"/>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Email</label>
+              <input type="email" name="email" class="form-control"
+                     value="{{ s.email or '' }}" placeholder="hospital@email.com"/>
+            </div>
+          </div>
+
+          <div class="section-divider"></div>
+          <h6 class="text-muted text-uppercase fw-bold mb-3" style="font-size:.72rem;letter-spacing:.08em">
+            <i class="bi bi-person-badge me-1"></i>Doctor / Clinic Details
+          </h6>
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Doctor Name</label>
+              <input type="text" name="doctor_name" class="form-control"
+                     value="{{ s.doctor_name or '' }}" placeholder="Dr. Full Name"/>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Degree / Qualification</label>
+              <input type="text" name="doctor_degree" class="form-control"
+                     value="{{ s.doctor_degree or '' }}" placeholder="MBBS, MD — General Medicine"/>
+            </div>
+          </div>
+
+          <div class="section-divider"></div>
+          <h6 class="text-muted text-uppercase fw-bold mb-3" style="font-size:.72rem;letter-spacing:.08em">
+            <i class="bi bi-palette me-1"></i>Brand Colors
+          </h6>
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Primary Color</label>
+              <div class="d-flex align-items-center gap-2">
+                <input type="color" name="logo_color1" class="form-control form-control-color"
+                       value="{{ s.logo_color1 or '#1a6fad' }}" style="width:60px;height:38px"/>
+                <input type="text" id="color1text" class="form-control form-control-sm"
+                       value="{{ s.logo_color1 or '#1a6fad' }}" placeholder="#1a6fad"
+                       oninput="document.querySelector('[name=logo_color1]').value=this.value"/>
+              </div>
+              <div class="form-text">Sidebar &amp; buttons</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Secondary Color</label>
+              <div class="d-flex align-items-center gap-2">
+                <input type="color" name="logo_color2" class="form-control form-control-color"
+                       value="{{ s.logo_color2 or '#0e9f8b' }}" style="width:60px;height:38px"/>
+                <input type="text" id="color2text" class="form-control form-control-sm"
+                       value="{{ s.logo_color2 or '#0e9f8b' }}" placeholder="#0e9f8b"
+                       oninput="document.querySelector('[name=logo_color2]').value=this.value"/>
+              </div>
+              <div class="form-text">Accents &amp; gradients</div>
+            </div>
+            <!-- Quick presets -->
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Quick Presets</label>
+              <div class="d-flex flex-wrap gap-2 mt-1">
+                <button type="button" class="btn btn-sm preset" data-c1="#1a6fad" data-c2="#0e9f8b"
+                        style="background:#1a6fad;color:#fff;border-radius:6px;font-size:.75rem">Blue</button>
+                <button type="button" class="btn btn-sm preset" data-c1="#7b2d8b" data-c2="#e91e8c"
+                        style="background:#7b2d8b;color:#fff;border-radius:6px;font-size:.75rem">Purple</button>
+                <button type="button" class="btn btn-sm preset" data-c1="#c0392b" data-c2="#e74c3c"
+                        style="background:#c0392b;color:#fff;border-radius:6px;font-size:.75rem">Red</button>
+                <button type="button" class="btn btn-sm preset" data-c1="#1e8449" data-c2="#27ae60"
+                        style="background:#1e8449;color:#fff;border-radius:6px;font-size:.75rem">Green</button>
+                <button type="button" class="btn btn-sm preset" data-c1="#1a5276" data-c2="#2980b9"
+                        style="background:#1a5276;color:#fff;border-radius:6px;font-size:.75rem">Navy</button>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary px-4" style="border-radius:9px">
+            <i class="bi bi-check-lg me-1"></i>Save Settings
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Preview -->
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header"><span class="fw-semibold text-primary"><i class="bi bi-eye me-2"></i>Live Preview</span></div>
+      <div class="card-body p-0">
+        <!-- Prescription preview -->
+        <div id="previewBox" style="padding:1.2rem;font-family:'Segoe UI',sans-serif;font-size:.82rem">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a6fad;padding-bottom:10px;margin-bottom:12px" id="previewHeader">
+            <div>
+              <div style="font-size:1.2rem;font-weight:700;color:#1a6fad" id="previewName">{{ s.hospital_name or 'Hospital Name' }}</div>
+              <div style="font-size:.78rem;color:#555" id="previewDoctor">{{ s.doctor_name or 'Doctor Name' }}</div>
+              <div style="font-size:.78rem;color:#555" id="previewDegree">{{ s.doctor_degree or 'MBBS, MD' }}</div>
+              {% if s.phone %}<div style="font-size:.75rem;color:#789ab4" id="previewPhone">📞 {{ s.phone }}</div>{% else %}<div style="font-size:.75rem;color:#789ab4" id="previewPhone"></div>{% endif %}
+              {% if s.address %}<div style="font-size:.75rem;color:#789ab4" id="previewAddress">📍 {{ s.address[:50] }}</div>{% else %}<div style="font-size:.75rem;color:#789ab4" id="previewAddress"></div>{% endif %}
+            </div>
+            <div style="font-size:2.5rem;font-weight:900;color:#1a6fad;line-height:1" id="previewRx">℞</div>
+          </div>
+          <div style="background:#f0f6fb;border-radius:8px;padding:8px 12px;margin-bottom:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+            <div><div style="font-size:.65rem;color:#789ab4;text-transform:uppercase">Patient</div><div style="font-weight:600">Sample Patient</div></div>
+            <div><div style="font-size:.65rem;color:#789ab4;text-transform:uppercase">Age/Gender</div><div style="font-weight:600">35 yrs / Male</div></div>
+            <div><div style="font-size:.65rem;color:#789ab4;text-transform:uppercase">Date</div><div style="font-weight:600">Today</div></div>
+          </div>
+          <div style="border-bottom:1px solid #e0eaf5;padding-bottom:3px;margin-bottom:6px;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:#789ab4;font-weight:700">℞ Prescription</div>
+          <div style="font-size:.82rem;color:#1a1a2e">
+            Tab. Paracetamol 500mg &nbsp;—&nbsp; 1-0-1 × 5 days<br>
+            Tab. Amoxicillin 500mg &nbsp;—&nbsp; 1-1-1 × 7 days
+          </div>
+          <div style="display:flex;justify-content:flex-end;border-top:2px solid #1a6fad;margin-top:14px;padding-top:10px">
+            <div style="text-align:right">
+              <div style="border-top:1.5px solid #1a6fad;width:150px;margin:0 0 4px auto"></div>
+              <div style="font-weight:600;color:#1a6fad;font-size:.85rem" id="previewSig">{{ s.doctor_name or 'Doctor Name' }}</div>
+              <div style="font-size:.72rem;color:#555">Signature &amp; Stamp</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login page preview -->
+    <div class="card mt-3">
+      <div class="card-header"><span class="fw-semibold text-primary"><i class="bi bi-box-arrow-in-right me-2"></i>Login Page Preview</span></div>
+      <div class="card-body text-center py-3" id="loginPreview"
+           style="background:linear-gradient(135deg,{{ s.logo_color1 or '#1a6fad' }},{{ s.logo_color2 or '#0e9f8b' }});border-radius:8px">
+        <div style="width:50px;height:50px;border-radius:12px;background:rgba(255,255,255,.2);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.5rem">
+          <i class="bi bi-clipboard2-pulse-fill"></i>
+        </div>
+        <div style="color:#fff;font-weight:700;font-size:1rem" id="loginName">{{ s.hospital_name or 'Hospital Name' }}</div>
+        <div style="color:rgba(255,255,255,.8);font-size:.78rem" id="loginTag">{{ s.hospital_tagline or 'Quality Healthcare' }}</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+// Live preview updates
+const fields = {
+  hospital_name:    (v) => { document.getElementById('previewName').textContent=v; document.getElementById('loginName').textContent=v; },
+  hospital_tagline: (v) => { document.getElementById('loginTag').textContent=v; },
+  doctor_name:      (v) => { document.getElementById('previewDoctor').textContent=v; document.getElementById('previewSig').textContent=v; },
+  doctor_degree:    (v) => { document.getElementById('previewDegree').textContent=v; },
+  phone:            (v) => { document.getElementById('previewPhone').textContent = v ? '📞 '+v : ''; },
+  address:          (v) => { document.getElementById('previewAddress').textContent = v ? '📍 '+v.substring(0,50) : ''; },
+};
+document.querySelectorAll('input[name], textarea[name]').forEach(el => {
+  el.addEventListener('input', () => {
+    if (fields[el.name]) fields[el.name](el.value);
+  });
+});
+
+// Color preview
+function updateColors(c1, c2) {
+  document.querySelectorAll('[style*="1a6fad"]').forEach(el => {
+    el.style.cssText = el.style.cssText.replace(/#1a6fad/g, c1);
+  });
+  document.getElementById('loginPreview').style.background =
+    `linear-gradient(135deg,${c1},${c2})`;
+  document.getElementById('color1text').value = c1;
+  document.getElementById('color2text').value = c2;
+  document.querySelector('[name=logo_color1]').value = c1;
+  document.querySelector('[name=logo_color2]').value = c2;
+}
+document.querySelector('[name=logo_color1]').addEventListener('input', function() {
+  document.getElementById('color1text').value = this.value;
+});
+document.querySelector('[name=logo_color2]').addEventListener('input', function() {
+  document.getElementById('color2text').value = this.value;
+  document.getElementById('loginPreview').style.background =
+    `linear-gradient(135deg,${document.querySelector('[name=logo_color1]').value},${this.value})`;
+});
+
+// Preset buttons
+document.querySelectorAll('.preset').forEach(btn => {
+  btn.addEventListener('click', () => updateColors(btn.dataset.c1, btn.dataset.c2));
+});
+</script>
+{% endblock %}

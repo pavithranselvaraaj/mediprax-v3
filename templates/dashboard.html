@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — {{ hospital.name }}{% endblock %}
+{% block page_title %}<i class="bi bi-speedometer2 me-2 text-primary"></i>Dashboard{% endblock %}
+{% block content %}
+
+<!-- Stats row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card" style="background:linear-gradient(135deg,#1a6fad,#2090d0)">
+      <small>Total Patients</small><h2>{{ stats.total_patients }}</h2><i class="bi bi-people-fill icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card" style="background:linear-gradient(135deg,#0e9f8b,#14c4ac)">
+      <small>OPD Today</small><h2>{{ stats.opd_today }}</h2><i class="bi bi-calendar2-check-fill icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card" style="background:linear-gradient(135deg,#e05c2a,#f08040)">
+      <small>IPD Admitted</small><h2>{{ stats.ipd_admitted }}</h2><i class="bi bi-hospital-fill icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card" style="background:linear-gradient(135deg,#1e8449,#27ae60)">
+      <small>Beds Available</small><h2>{{ stats.beds_available }}</h2><i class="bi bi-grid-3x3-gap-fill icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card" style="background:linear-gradient(135deg,#6a4fc8,#8e6fe0)">
+      <small>Total Visits</small><h2>{{ stats.total_visits }}</h2><i class="bi bi-clipboard2-pulse-fill icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card" style="background:linear-gradient(135deg,#0f3f6e,#1a6fad)">
+      <small>Appointments Today</small><h2>{{ stats.appts_today }}</h2><i class="bi bi-calendar3 icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card" style="background:linear-gradient(135deg,#b45309,#d97706)">
+      <small>Pending Bills</small><h2>{{ stats.pending_bills }}</h2><i class="bi bi-receipt icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card" style="background:linear-gradient(135deg,#7b2d8b,#a94fc8)">
+      <small>Lab Pending</small><h2>{{ stats.lab_pending }}</h2><i class="bi bi-droplet-half icon"></i>
+    </div>
+  </div>
+</div>
+
+<!-- IPD Admitted patients -->
+{% if admitted_patients %}
+<div class="card mb-4" style="border-left:4px solid #e05c2a">
+  <div class="card-header d-flex justify-content-between align-items-center" style="background:#fff8f5">
+    <span class="fw-semibold" style="color:#b45309">
+      <i class="bi bi-hospital-fill me-2" style="color:#e05c2a"></i>Currently Admitted (IPD)
+      <span class="badge ms-1" style="background:#e05c2a;font-size:.7rem">{{ admitted_patients|length }}</span>
+    </span>
+    <a href="{{ url_for('ipd.ward_view') }}" class="btn btn-sm btn-outline-warning" style="border-radius:7px;font-size:.78rem">Ward View</a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Patient</th><th>Ward / Bed</th><th>Diagnosis</th><th>Admitted</th><th></th></tr></thead>
+      <tbody>
+      {% for a in admitted_patients %}
+      <tr>
+        <td><a href="{{ url_for('patients.patient_detail', pid=a.patient_id) }}" class="fw-semibold text-decoration-none">{{ a.patient_name }}</a><br><small class="text-muted">{{ a.patient_phone }}</small></td>
+        <td><span class="badge" style="background:#e8f5e9;color:#2e7d32">{{ a.ward_name or '—' }}</span> {{ a.bed_number or '' }}</td>
+        <td><small class="text-muted">{{ (a.diagnosis_at_admission or '—')[:40] }}</small></td>
+        <td><small class="text-muted">{{ a.admission_date[:10] if a.admission_date else '—' }}</small></td>
+        <td><a href="{{ url_for('ipd.discharge_patient', adm_id=a.id) }}" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:.75rem">Discharge</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Follow-ups -->
+{% if followups %}
+<div class="card mb-4" style="border-left:4px solid #f59e0b">
+  <div class="card-header" style="background:#fffbeb">
+    <span class="fw-semibold" style="color:#b45309">
+      <i class="bi bi-bell-fill me-2" style="color:#f59e0b"></i>Follow-ups Due
+      <span class="badge ms-1" style="background:#f59e0b;font-size:.7rem">{{ followups|length }}</span>
+    </span>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Patient</th><th>Phone</th><th>Follow-up</th><th>Complaints</th><th></th></tr></thead>
+      <tbody>
+      {% for f in followups %}
+      <tr>
+        <td><a href="{{ url_for('patients.patient_detail', pid=f.patient_id) }}" class="fw-semibold text-decoration-none">{{ f.patient_name }}</a></td>
+        <td>{{ f.patient_phone or '—' }}</td>
+        <td>
+          {% if f.followup_date < today_date %}
+            <span class="badge bg-danger">Overdue: {{ f.followup_date }}</span>
+          {% else %}
+            <span class="badge bg-success">Today</span>
+          {% endif %}
+        </td>
+        <td><small class="text-muted">{{ (f.complaints or '—')[:45] }}</small></td>
+        <td><a href="{{ url_for('patients.patient_detail', pid=f.patient_id) }}" class="btn btn-sm btn-outline-warning py-0">View</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold text-primary"><i class="bi bi-person-lines-fill me-2"></i>Recent Patients</span>
+        <a href="{{ url_for('patients.patients') }}" class="btn btn-sm btn-outline-primary" style="font-size:.78rem;border-radius:7px">View All</a>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_patients %}
+        <table class="table table-hover mb-0">
+          <thead><tr><th>UHID</th><th>Name</th><th>Type</th><th>Phone</th></tr></thead>
+          <tbody>
+          {% for p in recent_patients %}
+          <tr>
+            <td><small class="text-muted font-monospace">{{ p.uhid or '—' }}</small></td>
+            <td><a href="{{ url_for('patients.patient_detail', pid=p.id) }}" class="fw-semibold text-decoration-none">{{ p.name }}</a></td>
+            <td>
+              {% if p.patient_type == 'IPD' %}
+                <span class="badge" style="background:#fce8e8;color:#c0392b;font-size:.72rem">IPD</span>
+              {% elif p.patient_type == 'Emergency' %}
+                <span class="badge" style="background:#fff3cd;color:#856404;font-size:.72rem">EMG</span>
+              {% else %}
+                <span class="badge" style="background:#e8f5e9;color:#2e7d32;font-size:.72rem">OPD</span>
+              {% endif %}
+            </td>
+            <td><small>{{ p.phone or '—' }}</small></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted text-center py-4">No patients yet</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <span class="fw-semibold text-primary"><i class="bi bi-journal-medical me-2"></i>Recent Visits</span>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_visits %}
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Patient</th><th>Date</th><th>Diagnosis</th></tr></thead>
+          <tbody>
+          {% for v in recent_visits %}
+          <tr>
+            <td>
+              <a href="{{ url_for('patients.patient_detail', pid=v.patient_id) }}" class="fw-semibold text-decoration-none">{{ v.patient_name }}</a>
+              {% if v.token_no %}<span class="badge ms-1" style="background:#e0f0ff;color:#1a6fad;font-size:.68rem">#{{ v.token_no }}</span>{% endif %}
+            </td>
+            <td><small>{{ v.visit_date }}</small></td>
+            <td><small class="text-muted">{{ (v.primary_diagnosis or v.complaints or '—')[:40] }}</small></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted text-center py-4">No visits yet</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

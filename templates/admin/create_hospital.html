@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Create Hospital — Admin Panel</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+  <style>
+    body{background:#0f0f1a;color:#e0e0e0;font-family:'Segoe UI',sans-serif;min-height:100vh}
+    .topbar{background:linear-gradient(90deg,#7b2d8b,#e91e8c);padding:.8rem 2rem;display:flex;justify-content:space-between;align-items:center}
+    .topbar h4{color:#fff;margin:0;font-weight:700}
+    .card{background:#1a1a2e;border:1px solid #2a2a3e;border-radius:14px}
+    .card-header{background:#16213e;border-bottom:1px solid #2a2a3e;border-radius:14px 14px 0 0!important;color:#e0e0e0;font-weight:600}
+    .form-label{color:#a0a0b0;font-size:.82rem;font-weight:600}
+    .form-control,.form-select{background:#0f0f1a;border:1px solid #2a2a3e;color:#e0e0e0;border-radius:9px}
+    .form-control:focus,.form-select:focus{background:#0f0f1a;border-color:#7b2d8b;color:#e0e0e0;box-shadow:0 0 0 3px rgba(123,45,139,.2)}
+    .form-control::placeholder{color:#4a4a6a}
+    .section-title{color:#a0a0b0;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;font-weight:700;border-bottom:1px solid #2a2a3e;padding-bottom:6px;margin-bottom:1rem}
+    .btn-create{background:linear-gradient(135deg,#7b2d8b,#e91e8c);border:none;color:#fff;border-radius:10px;font-weight:600;padding:.65rem 2rem}
+    .divider{border-color:#2a2a3e;margin:1.5rem 0}
+    .input-group-text{background:#16213e;border:1px solid #2a2a3e;color:#a0a0b0}
+    select option{background:#1a1a2e}
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <h4><i class="bi bi-plus-circle me-2"></i>Create New Hospital</h4>
+  <a href="{{ url_for('super_admin.hospital_list') }}" class="btn btn-sm btn-outline-light" style="border-radius:8px">
+    <i class="bi bi-arrow-left me-1"></i>Back to list
+  </a>
+</div>
+
+<div class="container py-4" style="max-width:720px">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+    <div class="alert alert-{{ cat }} mb-3" style="border-radius:10px">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="POST">
+    <div class="card mb-4">
+      <div class="card-header p-3"><i class="bi bi-building me-2"></i>Hospital Information</div>
+      <div class="card-body p-4">
+        <div class="section-title">Basic Details</div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-7">
+            <label class="form-label">Hospital Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" required placeholder="e.g. City General Hospital"/>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label">Tagline / Speciality</label>
+            <input type="text" name="tagline" class="form-control" placeholder="Quality Healthcare"/>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Address</label>
+            <textarea name="address" class="form-control" rows="2" placeholder="Full hospital address"></textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Phone</label>
+            <input type="text" name="phone" class="form-control" placeholder="+91 99999 99999"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control" placeholder="hospital@email.com"/>
+          </div>
+        </div>
+        <div class="section-title mt-3">Doctor / Clinic Details (for prescription)</div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Doctor Name</label>
+            <input type="text" name="doctor_name" class="form-control" placeholder="Dr. Full Name"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Degree</label>
+            <input type="text" name="doctor_degree" class="form-control" placeholder="MBBS, MD — General Medicine" value="MBBS, MD"/>
+          </div>
+        </div>
+        <div class="section-title mt-3">Brand Colors</div>
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">Primary Color</label>
+            <input type="color" name="color1" class="form-control form-control-color w-100" value="#1a6fad" style="height:40px"/>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Secondary Color</label>
+            <input type="color" name="color2" class="form-control form-control-color w-100" value="#0e9f8b" style="height:40px"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Quick Presets</label>
+            <div class="d-flex flex-wrap gap-2 mt-1">
+              {% for c1, c2, label in [('#1a6fad','#0e9f8b','Blue'),('#7b2d8b','#e91e8c','Purple'),('#c0392b','#e74c3c','Red'),('#1e8449','#27ae60','Green')] %}
+              <button type="button" class="btn btn-sm preset"
+                      data-c1="{{ c1 }}" data-c2="{{ c2 }}"
+                      style="background:{{ c1 }};color:#fff;border-radius:6px;font-size:.75rem;border:none">{{ label }}</button>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header p-3"><i class="bi bi-person-badge me-2"></i>Hospital Admin Login</div>
+      <div class="card-body p-4">
+        <p class="text-muted small mb-3">This admin can manage their hospital — create doctors, nurses, patients and configure settings.</p>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Admin Full Name <span class="text-danger">*</span></label>
+            <input type="text" name="admin_name" class="form-control" required placeholder="e.g. Dr. Ravi Kumar"/>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Username <span class="text-danger">*</span></label>
+            <input type="text" name="admin_username" class="form-control" required placeholder="e.g. citygeneral_admin"/>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Password <span class="text-danger">*</span></label>
+            <input type="password" name="admin_password" class="form-control" required minlength="6" placeholder="Min 6 characters"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-3">
+      <button type="submit" class="btn btn-create"><i class="bi bi-check-circle me-2"></i>Create Hospital</button>
+      <a href="{{ url_for('super_admin.hospital_list') }}" class="btn btn-outline-secondary" style="border-radius:10px">Cancel</a>
+    </div>
+  </form>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.querySelectorAll('.preset').forEach(b => b.addEventListener('click', () => {
+  document.querySelector('[name=color1]').value = b.dataset.c1;
+  document.querySelector('[name=color2]').value = b.dataset.c2;
+}));
+</script>
+</body>
+</html>

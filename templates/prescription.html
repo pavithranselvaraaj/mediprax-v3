@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Prescription — {{ patient.name }} | {{ hospital.name }}</title>
+  <style>
+    @media print { .no-print{display:none!important} body{margin:0} @page{margin:10mm 15mm} }
+    *{box-sizing:border-box}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;background:#fff;max-width:780px;margin:0 auto;padding:20px}
+    .letterhead{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;margin-bottom:14px;border-bottom:3px solid {{ hospital.color1 }}}
+    .clinic-info h1{font-size:1.4rem;color:{{ hospital.color1 }};margin:0 0 2px;font-weight:700}
+    .clinic-info p{margin:2px 0;font-size:.8rem;color:#555}
+    .rx-symbol{font-size:3rem;font-weight:900;line-height:1;color:{{ hospital.color1 }}}
+    .pt-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#f0f6fb;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.82rem}
+    .pt-strip .f label{display:block;font-size:.68rem;color:#789ab4;text-transform:uppercase;letter-spacing:.05em}
+    .pt-strip .f span{font-weight:600}
+    .pt-strip .full{grid-column:1/-1}
+    .vitals-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+    .vchip{background:#fff;border:1.5px solid #c8ddf0;border-radius:20px;padding:3px 12px;font-size:.78rem;display:flex;align-items:center;gap:5px}
+    .vchip .vl{font-weight:700;color:{{ hospital.color1 }}} .vchip .vn{color:#789ab4;font-size:.7rem}
+    .section{margin-bottom:14px}
+    .stitle{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#789ab4;font-weight:700;border-bottom:1px solid #e0eaf5;padding-bottom:3px;margin-bottom:7px}
+    .sbody{font-size:.88rem;line-height:1.6;white-space:pre-wrap}
+    .rx-table{width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:14px}
+    .rx-table thead tr{background:{{ hospital.color1 }};color:#fff}
+    .rx-table thead th{padding:7px 10px;text-align:left;font-size:.78rem}
+    .rx-table tbody tr:nth-child(even){background:#f7fafd}
+    .rx-table tbody td{padding:6px 10px;border-bottom:1px solid #e8eff7;vertical-align:top}
+    .rx-footer{display:flex;justify-content:space-between;align-items:flex-end;border-top:2px solid {{ hospital.color1 }};margin-top:24px;padding-top:12px}
+    .followup-box{background:#fffbeb;border:1.5px dashed #f59e0b;border-radius:8px;padding:8px 14px;font-size:.84rem}
+    .followup-box strong{color:#b45309}
+    .sig-area{text-align:right}
+    .sig-line{border-top:1.5px solid {{ hospital.color1 }};width:180px;margin:0 0 4px auto}
+    .sig-name{font-weight:700;color:{{ hospital.color1 }};font-size:.9rem}
+    .print-btn{position:fixed;bottom:20px;right:20px;background:{{ hospital.color1 }};color:#fff;border:none;border-radius:50px;padding:12px 24px;font-size:.9rem;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+    .back-btn{position:fixed;bottom:20px;left:20px;background:#fff;color:{{ hospital.color1 }};border:1.5px solid {{ hospital.color1 }};border-radius:50px;padding:10px 20px;font-size:.85rem;text-decoration:none}
+  </style>
+</head>
+<body>
+
+<!-- Letterhead uses hospital settings -->
+<div class="letterhead">
+  <div class="clinic-info">
+    <h1>{{ hospital.name }}</h1>
+    <p>{{ hospital.doctor }} &nbsp;|&nbsp; {{ hospital.degree }}</p>
+    {% if hospital.phone %}<p>📞 {{ hospital.phone }}</p>{% endif %}
+    {% if hospital.address %}<p>📍 {{ hospital.address }}</p>{% endif %}
+    {% if hospital.email %}<p>✉ {{ hospital.email }}</p>{% endif %}
+  </div>
+  <div class="rx-symbol">℞</div>
+</div>
+
+<div class="pt-strip">
+  <div class="f"><label>Patient</label><span>{{ patient.name }}</span></div>
+  <div class="f"><label>Age / Gender</label><span>{{ display_age or '—' }} yrs / {{ patient.gender or '—' }}</span></div>
+  <div class="f"><label>Date</label><span>{{ visit.visit_date or today }}</span></div>
+  <div class="f"><label>Blood Group</label><span>{{ patient.blood_group or '—' }}</span></div>
+  {% if patient.individual_number %}<div class="f"><label>Patient ID</label><span>{{ patient.individual_number }}</span></div>{% endif %}
+  {% if patient.comorbidity %}<div class="f full"><label>Known Conditions</label><span>{{ patient.comorbidity }}</span></div>{% endif %}
+</div>
+
+{% set hv = visit.bp_systolic or visit.pulse or visit.temperature or visit.weight or visit.spo2 %}
+{% if hv %}
+<div class="vitals-bar">
+  {% if visit.bp_systolic %}<div class="vchip"><span class="vl">{{ visit.bp_systolic }}/{{ visit.bp_diastolic }}</span><span class="vn">mmHg BP</span></div>{% endif %}
+  {% if visit.pulse      %}<div class="vchip"><span class="vl">{{ visit.pulse }}</span><span class="vn">bpm</span></div>{% endif %}
+  {% if visit.temperature%}<div class="vchip"><span class="vl">{{ visit.temperature }}°F</span><span class="vn">Temp</span></div>{% endif %}
+  {% if visit.weight     %}<div class="vchip"><span class="vl">{{ visit.weight }} kg</span><span class="vn">Wt</span></div>{% endif %}
+  {% if visit.spo2       %}<div class="vchip"><span class="vl">{{ visit.spo2 }}%</span><span class="vn">SpO₂</span></div>{% endif %}
+  {% if visit.rr         %}<div class="vchip"><span class="vl">{{ visit.rr }}/min</span><span class="vn">RR</span></div>{% endif %}
+</div>
+{% endif %}
+
+{% if visit.complaints %}<div class="section"><div class="stitle">Chief Complaints</div><div class="sbody">{{ visit.complaints }}</div></div>{% endif %}
+{% if visit.investigation %}<div class="section"><div class="stitle">Investigations Ordered</div><div class="sbody">{{ visit.investigation }}</div></div>{% endif %}
+
+{% if visit.prescription %}
+<div class="section">
+  <div class="stitle">℞ Prescription</div>
+  {% set rx_lines = visit.prescription.split('\n') | select | list %}
+  {% if rx_lines|length > 1 %}
+  <table class="rx-table">
+    <thead><tr><th>#</th><th>Medicine</th><th>Dosage / Frequency / Duration</th></tr></thead>
+    <tbody>
+    {% for line in rx_lines %}{% if line.strip() %}
+    <tr>
+      <td style="color:#789ab4;width:28px">{{ loop.index }}</td>
+      {% set parts = line.strip().split('  ') %}
+      {% if parts|length >= 2 %}<td><strong>{{ parts[0] }}</strong></td><td>{{ parts[1:]|join('  ') }}</td>
+      {% else %}<td colspan="2">{{ line }}</td>{% endif %}
+    </tr>
+    {% endif %}{% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="sbody">{{ visit.prescription }}</div>{% endif %}
+</div>
+{% endif %}
+
+{% if visit.notes %}<div class="section"><div class="stitle">Advice / Notes</div><div class="sbody">{{ visit.notes }}</div></div>{% endif %}
+
+<div class="rx-footer">
+  <div>
+    {% if visit.followup_date %}
+    <div class="followup-box">📅 Please follow up on: <strong>{{ visit.followup_date }}</strong></div>
+    {% else %}<small style="color:#aaa">Printed: {{ today }}</small>{% endif %}
+  </div>
+  <div class="sig-area">
+    <div class="sig-line"></div>
+    <div class="sig-name">{{ hospital.doctor }}</div>
+    <div style="font-size:.72rem;color:#555">{{ hospital.degree }}</div>
+    <div style="font-size:.72rem;color:#555">Signature &amp; Stamp</div>
+  </div>
+</div>
+
+<a href="javascript:history.back()" class="back-btn no-print">← Back</a>
+<button class="print-btn no-print" onclick="window.print()">🖨 Print / Save PDF</button>
+</body>
+</html>

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Admit Patient — {{ hospital.name }}{% endblock %}
+{% block page_title %}<i class="bi bi-hospital me-2 text-warning"></i>IPD Admission — {{ patient.name }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:760px">
+  <div class="card-header">
+    <span class="fw-semibold text-warning"><i class="bi bi-hospital me-2"></i>{{ patient.name }} — {{ patient.uhid }}</span>
+    <small class="text-muted ms-2">{{ patient.age }}y / {{ patient.gender }} {% if patient.blood_group %}/ {{ patient.blood_group }}{% endif %}</small>
+  </div>
+  <div class="card-body">
+    <form method="POST">
+      <div class="section-header"><i class="bi bi-door-open me-2"></i>Admission Details</div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Admission Type</label>
+          <select name="admission_type" class="form-select">
+            {% for t in ['Elective','Emergency','Referral','Transfer'] %}
+            <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Admitting Doctor</label>
+          <select name="doctor_id" class="form-select">
+            <option value="">— Select —</option>
+            {% for d in doctors %}
+            <option value="{{ d.id }}">{{ d.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Admission Date &amp; Time</label>
+          <input type="datetime-local" name="admission_datetime" class="form-control" value="{{ today }}"/>
+        </div>
+      </div>
+
+      <div class="section-header"><i class="bi bi-grid-3x3 me-2"></i>Ward &amp; Bed</div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Ward</label>
+          <select name="ward_id" id="wardSelect" class="form-select" onchange="loadBeds()">
+            <option value="">— Select Ward —</option>
+            {% for w in wards %}
+            <option value="{{ w.id }}">{{ w.name }} ({{ w.ward_type }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Bed</label>
+          <select name="bed_id" id="bedSelect" class="form-select">
+            <option value="">— Select Ward First —</option>
+            {% for b in available_beds %}
+            <option value="{{ b.id }}" data-ward="{{ b.ward_id }}">{{ b.bed_number }} ({{ b.ward_name }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Diagnosis at Admission</label>
+          <input type="text" name="diagnosis_at_admission" class="form-control" placeholder="Provisional diagnosis"/>
+        </div>
+      </div>
+
+      <div class="section-header"><i class="bi bi-person-standing me-2"></i>Attendant Details</div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Attendant Name</label>
+          <input type="text" name="attendant_name" class="form-control" placeholder="Name" value="{{ patient.guardian_name or '' }}"/>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Phone</label>
+          <input type="tel" name="attendant_phone" class="form-control" placeholder="Mobile" value="{{ patient.emergency_phone or '' }}"/>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Relation</label>
+          <select name="attendant_relation" class="form-select">
+            <option value="">— Select —</option>
+            {% for r in ['Father','Mother','Spouse','Son','Daughter','Brother','Sister','Friend','Other'] %}
+            <option value="{{ r }}" {% if patient.guardian_relation==r %}selected{% endif %}>{{ r }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-warning px-4" style="border-radius:9px"><i class="bi bi-hospital me-1"></i>Confirm Admission</button>
+        <a href="{{ url_for('patients.patient_detail', pid=patient.id) }}" class="btn btn-outline-secondary px-4" style="border-radius:9px">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const allBeds = {{ available_beds|tojson }};
+function loadBeds(){
+  const wid = +document.getElementById('wardSelect').value;
+  const sel = document.getElementById('bedSelect');
+  sel.innerHTML = '<option value="">— Select Bed —</option>';
+  allBeds.filter(b=>!wid||b.ward_id===wid).forEach(b=>{
+    const o=document.createElement('option');
+    o.value=b.id; o.textContent=`${b.bed_number}`;
+    sel.appendChild(o);
+  });
+}
+</script>
+{% endblock %}

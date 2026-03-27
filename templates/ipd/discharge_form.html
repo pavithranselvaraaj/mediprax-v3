@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Discharge — {{ hospital.name }}{% endblock %}
+{% block page_title %}<i class="bi bi-box-arrow-right me-2 text-danger"></i>Discharge — {{ adm.patient_name }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:760px">
+  <div class="card-header">
+    <span class="fw-semibold text-danger">Discharge Patient: {{ adm.patient_name }}</span>
+    <small class="text-muted ms-2">Adm: {{ adm.admission_no }} | Ward: {{ adm.ward_name or '—' }} / Bed: {{ adm.bed_number or '—' }}</small>
+  </div>
+  <div class="card-body">
+    <form method="POST">
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Discharge Type</label>
+          <select name="discharge_type" class="form-select" required>
+            {% for t in ['Recovered','Improved','LAMA','Referred','Expired','Transfer'] %}
+            <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Condition at Discharge</label>
+          <select name="condition_at_discharge" class="form-select">
+            {% for c in ['Stable','Improved','Critical','Unchanged','Expired'] %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label small fw-semibold">Final Diagnosis</label>
+          <input type="text" name="final_diagnosis" class="form-control" value="{{ adm.diagnosis_at_admission or '' }}" placeholder="Final confirmed diagnosis"/>
+        </div>
+        <div class="col-12">
+          <label class="form-label small fw-semibold">Discharge Summary</label>
+          <textarea name="discharge_summary" class="form-control" rows="5"
+                    placeholder="Brief clinical summary: presenting complaints, investigations done, treatment given, response to treatment…"></textarea>
+        </div>
+        <div class="col-12">
+          <label class="form-label small fw-semibold">Discharge Instructions</label>
+          <textarea name="discharge_instructions" class="form-control" rows="3"
+                    placeholder="Follow-up date, diet restrictions, activity level, medicines to continue, warning signs to watch for…"></textarea>
+        </div>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-danger px-4" style="border-radius:9px" onclick="return confirm('Confirm discharge?')"><i class="bi bi-box-arrow-right me-1"></i>Discharge Patient</button>
+        <a href="{{ url_for('patients.patient_detail', pid=adm.patient_id) }}" class="btn btn-outline-secondary px-4" style="border-radius:9px">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

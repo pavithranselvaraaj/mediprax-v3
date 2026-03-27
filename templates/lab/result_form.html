@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Enter Results — {{ hospital.name }}{% endblock %}
+{% block page_title %}<i class="bi bi-pencil me-2 text-primary"></i>Enter Lab Results{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <span class="fw-semibold text-primary">{{ order.patient_name }} — {{ order.uhid }}</span>
+    <small class="text-muted ms-2">Order Date: {{ order.order_date }}</small>
+  </div>
+  <div class="card-body">
+    <form method="POST">
+      <table class="table">
+        <thead><tr><th>Test</th><th>Category</th><th>Result</th><th>Unit</th><th>Reference Range</th><th>Remarks</th></tr></thead>
+        <tbody>
+        {% for t in tests %}
+        <tr>
+          <td class="fw-semibold">{{ t.test_name }}</td>
+          <td><small class="text-muted">{{ t.test_category }}</small></td>
+          <td><input type="text" name="result_{{ t.id }}" class="form-control form-control-sm" value="{{ t.result or '' }}" placeholder="Value"/></td>
+          <td><input type="text" name="unit_{{ t.id }}" class="form-control form-control-sm" value="{{ t.unit or '' }}" style="width:80px" placeholder="mg/dL"/></td>
+          <td><input type="text" name="ref_{{ t.id }}" class="form-control form-control-sm" value="{{ t.reference_range or '' }}" placeholder="Normal range"/></td>
+          <td><input type="text" name="remarks_{{ t.id }}" class="form-control form-control-sm" value="{{ t.remarks or '' }}" placeholder="H/L/Normal"/></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-success px-4" style="border-radius:9px"><i class="bi bi-check-lg me-1"></i>Save Results</button>
+        <a href="{{ url_for('lab.lab_list') }}" class="btn btn-outline-secondary px-4" style="border-radius:9px">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Billing — {{ hospital.name }}{% endblock %}
+{% block page_title %}<i class="bi bi-receipt me-2 text-primary"></i>Billing{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="stat-card" style="background:linear-gradient(135deg,#1e8449,#27ae60)"><small>Collections Today</small><h2>₹{{ '%.0f'|format(stats.total_today or 0) }}</h2><i class="bi bi-cash icon"></i></div></div>
+  <div class="col-md-4"><div class="stat-card" style="background:linear-gradient(135deg,#c0392b,#e74c3c)"><small>Pending Bills</small><h2>{{ stats.pending }}</h2><i class="bi bi-clock icon"></i></div></div>
+  <div class="col-md-4"><div class="stat-card" style="background:linear-gradient(135deg,#1a6fad,#2090d0)"><small>Paid Today</small><h2>₹{{ '%.0f'|format(stats.paid_today or 0) }}</h2><i class="bi bi-check-circle icon"></i></div></div>
+</div>
+<div class="card">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <form class="d-flex gap-2 flex-wrap" method="GET">
+      <input type="text" name="q" value="{{ search }}" class="form-control form-control-sm" style="width:200px;border-radius:8px" placeholder="Patient name, bill no, UHID…"/>
+      <select name="status" class="form-select form-select-sm" style="width:120px;border-radius:8px">
+        <option value="">All Status</option>
+        {% for s in ['pending','partial','paid','waived'] %}<option value="{{ s }}" {% if status_filter==s %}selected{% endif %}>{{ s|title }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-sm btn-primary" style="border-radius:8px"><i class="bi bi-search me-1"></i>Filter</button>
+      {% if search or status_filter %}<a href="{{ url_for('billing.bill_list') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px">Clear</a>{% endif %}
+    </form>
+    <a href="{{ url_for('patients.patients') }}" class="btn btn-sm btn-success" style="border-radius:8px"><i class="bi bi-plus me-1"></i>New Bill (Select Patient)</a>
+  </div>
+  <div class="card-body p-0">
+    {% if bills %}
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Bill No</th><th>Patient</th><th>Date</th><th>Type</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for b in bills %}
+      <tr>
+        <td><code class="small">{{ b.bill_no }}</code></td>
+        <td>
+          <div class="fw-semibold">{{ b.patient_name }}</div>
+          <small class="text-muted">{{ b.patient_uhid or '' }}</small>
+        </td>
+        <td><small>{{ b.bill_date }}</small></td>
+        <td><span class="badge" style="background:#e0f0ff;color:#1a6fad;font-size:.72rem">{{ b.bill_type }}</span></td>
+        <td class="fw-semibold">₹{{ '%.2f'|format(b.total or 0) }}</td>
+        <td>₹{{ '%.2f'|format(b.paid_amount or 0) }}</td>
+        <td>
+          {% set balance = (b.total or 0) - (b.paid_amount or 0) %}
+          <span class="{% if balance > 0 %}text-danger{% else %}text-success{% endif %} fw-semibold">₹{{ '%.2f'|format(balance) }}</span>
+        </td>
+        <td>
+          {% if b.payment_status=='paid' %}<span class="badge bg-success">Paid</span>
+          {% elif b.payment_status=='partial' %}<span class="badge bg-warning text-dark">Partial</span>
+          {% elif b.payment_status=='waived' %}<span class="badge bg-secondary">Waived</span>
+          {% else %}<span class="badge bg-danger">Pending</span>{% endif %}
+        </td>
+        <td><a href="{{ url_for('billing.view_bill', bill_id=b.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2"><i class="bi bi-eye"></i></a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="px-3 py-2 d-flex justify-content-between" style="border-top:1px solid #f0f4f8">
+      <small class="text-muted">{{ total }} bill(s)</small>
+      {% if total_pages > 1 %}
+      <div class="d-flex gap-1">
+        {% if page > 1 %}<a href="?q={{ search }}&status={{ status_filter }}&page={{ page-1 }}" class="btn btn-sm btn-outline-secondary py-0">‹</a>{% endif %}
+        <span class="btn btn-sm btn-outline-secondary py-0 disabled">{{ page }}/{{ total_pages }}</span>
+        {% if page < total_pages %}<a href="?q={{ search }}&status={{ status_filter }}&page={{ page+1 }}" class="btn btn-sm btn-outline-secondary py-0">›</a>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted"><i class="bi bi-receipt" style="font-size:3rem"></i><p class="mt-2">No bills found</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

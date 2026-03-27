@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %}{{ patient.name }} — {{ hospital.name }}{% endblock %}
+{% block page_title %}<i class="bi bi-file-person me-2 text-primary"></i>Patient Record{% endblock %}
+{% block content %}
+
+<!-- Patient header -->
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <h5 class="mb-0 fw-bold text-primary">{{ patient.name }}</h5>
+        <code class="small" style="background:#f0f6fb;padding:2px 8px;border-radius:6px;color:#1a6fad">{{ patient.uhid or '' }}</code>
+        {% if patient.patient_type == 'IPD' %}<span class="badge" style="background:#fce8e8;color:#c0392b">IPD</span>
+        {% elif patient.patient_type == 'Emergency' %}<span class="badge" style="background:#fff3cd;color:#856404">Emergency</span>
+        {% else %}<span class="badge" style="background:#e8f5e9;color:#2e7d32">OPD</span>{% endif %}
+        {% if patient.known_allergies %}
+        <span class="badge" style="background:#fee2e2;color:#b91c1c" title="Known Allergies: {{ patient.known_allergies }}">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>Allergies
+        </span>
+        {% endif %}
+      </div>
+      <small class="text-muted">Registered: {{ patient.created_at[:10] if patient.created_at else '—' }}</small>
+    </div>
+    {% if session.role in ('admin','doctor') %}
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{{ url_for('patients.edit_patient', pid=patient.id) }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px"><i class="bi bi-pencil me-1"></i>Edit</a>
+      <a href="{{ url_for('visits.add_visit', pid=patient.id) }}" class="btn btn-sm btn-success" style="border-radius:8px"><i class="bi bi-plus-circle me-1"></i>New Visit</a>
+      <a href="{{ url_for('ipd.admit_patient', pid=patient.id) }}" class="btn btn-sm btn-warning" style="border-radius:8px"><i class="bi bi-hospital me-1"></i>Admit IPD</a>
+      <a href="{{ url_for('lab.order_tests', pid=patient.id) }}" class="btn btn-sm btn-outline-primary" style="border-radius:8px"><i class="bi bi-droplet me-1"></i>Lab Order</a>
+      <a href="{{ url_for('billing.create_bill', pid=patient.id) }}" class="btn btn-sm btn-outline-warning" style="border-radius:8px"><i class="bi bi-receipt me-1"></i>Bill</a>
+    </div>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-6 col-md-2 info-row"><label>Age / Gender</label><p>{{ display_age or patient.age or '—' }} yrs / {{ patient.gender or '—' }}</p></div>
+      {% if patient.dob %}<div class="col-6 col-md-2 info-row"><label>DOB</label><p>{{ patient.dob }}</p></div>{% endif %}
+      <div class="col-6 col-md-2 info-row"><label>Blood Group</label><p>{% if patient.blood_group %}<span class="badge" style="background:#fee2e2;color:#b91c1c;font-size:.88rem">{{ patient.blood_group }}{% if patient.rh_factor %} {{ patient.rh_factor }}{% endif %}</span>{% else %}—{% endif %}</p></div>
+      <div class="col-6 col-md-2 info-row"><label>Phone</label><p>{{ patient.phone or '—' }}</p></div>
+      <div class="col-6 col-md-2 info-row"><label>Guardian</label><p>{{ patient.guardian_name or '—' }}{% if patient.guardian_relation %} <small class="text-muted">({{ patient.guardian_relation }})</small>{% endif %}</p></div>
+      <div class="col-6 col-md-2 info-row"><label>Emergency</label><p>{{ patient.emergency_contact or '—' }}{% if patient.emergency_phone %}<br><small>{{ patient.emergency_phone }}</small>{% endif %}</p></div>
+      {% if patient.address %}<div class="col-md-4 info-row"><label>Address</label><p>{{ patient.address }}{% if patient.city %}, {{ patient.city }}{% endif %}{% if patient.state %}, {{ patient.state }}{% endif %}</p></div>{% endif %}
+      {% if patient.insurance %}<div class="col-md-3 info-row"><label>Insurance</label><p>{{ patient.insurance }}{% if patient.insurance_no %} <small class="text-muted">({{ patient.insurance_no }})</small>{% endif %}</p></div>{% endif %}
+      {% if patient.occupation %}<div class="col-md-2 info-row"><label>Occupation</label><p>{{ patient.occupation }}</p></div>{% endif %}
+    </div>
+
+    {% if patient.known_allergies %}
+    <div class="mt-3 p-2 rounded-3" style="background:#fee2e2;border:1px solid #fca5a5">
+      <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
+      <strong class="text-danger">Allergies:</strong> <span style="color:#b91c1c">{{ patient.known_allergies }}</span>
+    </div>
+    {% endif %}
+
+    {% if patient.comorbidity %}
+    <div class="mt-2">
+      <small class="text-muted fw-semibold text-uppercase" style="font-size:.7rem">Comorbidities:</small>
+      {% for item in patient.comorbidity.split(',') %}
+      <span class="badge ms-1" style="background:#fef3c7;color:#92400e">{{ item.strip() }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if patient.past_medical_history or patient.past_surgical_history or patient.family_history or patient.habits %}
+    <div class="mt-3">
+      <a class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" href="#historyBlock" style="font-size:.78rem;border-radius:7px">
+        <i class="bi bi-clock-history me-1"></i>Show Full History
+      </a>
+      <div class="collapse mt-2" id="historyBlock">
+        <div class="row g-2">
+          {% if patient.past_medical_history %}<div class="col-md-6"><label class="small fw-semibold text-muted">Past Medical History</label><p class="small">{{ patient.past_medical_history }}</p></div>{% endif %}
+          {% if patient.past_surgical_history %}<div class="col-md-6"><label class="small fw-semibold text-muted">Past Surgical History</label><p class="small">{{ patient.past_surgical_history }}</p></div>{% endif %}
+          {% if patient.family_history %}<div class="col-md-6"><label class="small fw-semibold text-muted">Family History</label><p class="small">{{ patient.family_history }}</p></div>{% endif %}
+          {% if patient.habits %}<div class="col-md-6"><label class="small fw-semibold text-muted">Personal Habits</label><p class="small">{{ patient.habits }}</p></div>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Tabs for clinical data -->
+<ul class="nav nav-tabs mb-3" id="patientTabs">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#visitsTab"><i class="bi bi-journal-medical me-1"></i>Visits <span class="badge bg-primary ms-1">{{ visits|length }}</span></button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ipdTab"><i class="bi bi-hospital me-1"></i>IPD <span class="badge bg-warning text-dark ms-1">{{ admissions|length }}</span></button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#labTab"><i class="bi bi-droplet me-1"></i>Lab <span class="badge ms-1" style="background:#7b2d8b;color:#fff">{{ lab_orders|length }}</span></button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#billsTab"><i class="bi bi-receipt me-1"></i>Bills <span class="badge ms-1" style="background:#d97706;color:#fff">{{ bills|length }}</span></button></li>
+</ul>
+
+<div class="tab-content">
+  <!-- Visits tab -->
+  <div class="tab-pane fade show active" id="visitsTab">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold text-primary"><i class="bi bi-journal-medical me-2"></i>Visit History</span>
+        {% if session.role in ('admin','doctor') %}
+        <a href="{{ url_for('visits.add_visit', pid=patient.id) }}" class="btn btn-sm btn-success" style="border-radius:8px;font-size:.8rem"><i class="bi bi-plus"></i> New Visit</a>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        {% if visits %}
+        <div class="accordion accordion-flush" id="visitAcc">
+          {% for v in visits %}
+          <div class="accordion-item border-bottom">
+            <h2 class="accordion-header">
+              <button class="accordion-button {% if not loop.first %}collapsed{% endif %} py-3" type="button" data-bs-toggle="collapse" data-bs-target="#v{{ v.id }}">
+                <div class="d-flex w-100 justify-content-between align-items-start pe-3 flex-wrap gap-1">
+                  <div>
+                    <span class="fw-semibold"><i class="bi bi-calendar3 me-1 text-primary"></i>{{ v.visit_date or '—' }}</span>
+                    {% if v.token_no %}<span class="badge ms-1" style="background:#e0f0ff;color:#1a6fad;font-size:.7rem">Token #{{ v.token_no }}</span>{% endif %}
+                    {% if v.visit_type and v.visit_type != 'OPD' %}<span class="badge ms-1" style="background:#fce8e8;color:#c0392b;font-size:.7rem">{{ v.visit_type }}</span>{% endif %}
+                    {% if v.followup_date %}<span class="badge ms-1" style="background:#fef3c7;color:#b45309;font-size:.7rem">F/U: {{ v.followup_date }}</span>{% endif %}
+                    {% if v.primary_diagnosis %}<br><small class="text-primary fw-semibold">Dx: {{ v.primary_diagnosis[:60] }}</small>{% endif %}
+                    {% if v.complaints and not v.primary_diagnosis %}<br><small class="text-muted">{{ v.complaints[:60] }}</small>{% endif %}
+                  </div>
+                  <div class="d-flex gap-1 align-items-center flex-wrap">
+                    {% if v.bp_systolic %}<span class="badge" style="background:#e0f0ff;color:#1a6fad;font-size:.68rem">{{ v.bp_systolic }}/{{ v.bp_diastolic }}</span>{% endif %}
+                    {% if v.pulse %}<span class="badge" style="background:#fce8e8;color:#c0392b;font-size:.68rem">{{ v.pulse }}bpm</span>{% endif %}
+                    {% if v.temperature %}<span class="badge" style="background:#fef9e7;color:#9a6c00;font-size:.68rem">{{ v.temperature }}°F</span>{% endif %}
+                    <a href="{{ url_for('visits.print_prescription', pid=patient.id, vid=v.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2" target="_blank" onclick="event.stopPropagation()"><i class="bi bi-printer"></i></a>
+                    {% if session.role in ('admin','doctor') %}
+                    <a href="{{ url_for('visits.edit_visit', pid=patient.id, vid=v.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2" onclick="event.stopPropagation()"><i class="bi bi-pencil"></i></a>
+                    <form method="POST" action="{{ url_for('visits.delete_visit', pid=patient.id, vid=v.id) }}" onsubmit="return confirm('Delete visit?')" onclick="event.stopPropagation()" style="display:inline">
+                      <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2"><i class="bi bi-trash"></i></button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </div>
+              </button>
+            </h2>
+            <div id="v{{ v.id }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}">
+              <div class="accordion-body py-3">
+                {% set hv = v.bp_systolic or v.pulse or v.temperature or v.weight or v.spo2 %}
+                {% if hv %}
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                  {% if v.bp_systolic %}<span class="badge px-3 py-2" style="background:#e0f0ff;color:#1a6fad;border-radius:20px">BP: {{ v.bp_systolic }}/{{ v.bp_diastolic }} mmHg</span>{% endif %}
+                  {% if v.pulse %}<span class="badge px-3 py-2" style="background:#fce8e8;color:#c0392b;border-radius:20px">Pulse: {{ v.pulse }} bpm</span>{% endif %}
+                  {% if v.temperature %}<span class="badge px-3 py-2" style="background:#fef9e7;color:#9a6c00;border-radius:20px">Temp: {{ v.temperature }}°F</span>{% endif %}
+                  {% if v.weight %}<span class="badge px-3 py-2" style="background:#e8f5e9;color:#2e7d32;border-radius:20px">Wt: {{ v.weight }}kg</span>{% endif %}
+                  {% if v.spo2 %}<span class="badge px-3 py-2" style="background:#e8eaf6;color:#3949ab;border-radius:20px">SpO₂: {{ v.spo2 }}%</span>{% endif %}
+                  {% if v.blood_sugar %}<span class="badge px-3 py-2" style="background:#fef3c7;color:#92400e;border-radius:20px">RBS: {{ v.blood_sugar }} mg/dL</span>{% endif %}
+                </div>
+                {% endif %}
+                <div class="row g-3">
+                  {% if v.complaints %}<div class="col-md-6"><label class="field-label">Complaints</label><p class="small mt-1">{{ v.complaints }}</p></div>{% endif %}
+                  {% if v.history_of_illness %}<div class="col-md-6"><label class="field-label">History of Illness</label><p class="small mt-1">{{ v.history_of_illness }}</p></div>{% endif %}
+                  {% if v.examination_findings %}<div class="col-12"><label class="field-label">Examination Findings</label><p class="small mt-1">{{ v.examination_findings }}</p></div>{% endif %}
+                  {% if v.primary_diagnosis %}<div class="col-md-6"><label class="field-label">Primary Diagnosis</label><p class="small mt-1 fw-semibold text-primary">{{ v.primary_diagnosis }}</p></div>{% endif %}
+                  {% if v.secondary_diagnosis %}<div class="col-md-6"><label class="field-label">Secondary Diagnosis</label><p class="small mt-1">{{ v.secondary_diagnosis }}</p></div>{% endif %}
+                  {% if v.investigation %}<div class="col-md-6"><label class="field-label">Investigations</label><p class="small mt-1">{{ v.investigation }}</p></div>{% endif %}
+                  {% if v.prescription %}<div class="col-12"><label class="field-label">Prescription</label><div class="mt-1 p-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;font-size:.85rem;white-space:pre-wrap;font-family:monospace">{{ v.prescription }}</div></div>{% endif %}
+                  {% if v.advice %}<div class="col-12"><label class="field-label">Advice</label><p class="small mt-1 text-muted">{{ v.advice }}</p></div>{% endif %}
+                  {% if v.followup_date %}<div class="col-12"><span class="badge px-3 py-2" style="background:#fef3c7;color:#b45309;border-radius:20px"><i class="bi bi-calendar-check me-1"></i>Follow-up: {{ v.followup_date }}{% if v.followup_notes %} — {{ v.followup_notes }}{% endif %}</span></div>{% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted"><i class="bi bi-journal-x" style="font-size:2.5rem"></i><p class="mt-2">No visits recorded yet.</p>{% if session.role in ('admin','doctor') %}<a href="{{ url_for('visits.add_visit', pid=patient.id) }}" class="btn btn-primary btn-sm">Record First Visit</a>{% endif %}</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- IPD tab -->
+  <div class="tab-pane fade" id="ipdTab">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold text-primary"><i class="bi bi-hospital me-2"></i>Admissions</span>
+        {% if session.role in ('admin','doctor') %}
+        <a href="{{ url_for('ipd.admit_patient', pid=patient.id) }}" class="btn btn-sm btn-warning" style="border-radius:8px;font-size:.8rem"><i class="bi bi-plus"></i> Admit</a>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        {% if admissions %}
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Adm No</th><th>Date</th><th>Ward/Bed</th><th>Diagnosis</th><th>Status</th><th>Discharge</th><th></th></tr></thead>
+          <tbody>
+          {% for a in admissions %}
+          <tr>
+            <td><code class="small">{{ a.admission_no or '—' }}</code></td>
+            <td><small>{{ a.admission_date[:10] if a.admission_date else '—' }}</small></td>
+            <td><small>{{ a.ward_name or '—' }} / {{ a.bed_number or '—' }}</small></td>
+            <td><small>{{ (a.diagnosis_at_admission or '—')[:35] }}</small></td>
+            <td>
+              {% if a.status == 'admitted' %}<span class="badge bg-success">Admitted</span>
+              {% elif a.status == 'discharged' %}<span class="badge bg-secondary">Discharged</span>
+              {% else %}<span class="badge bg-warning text-dark">{{ a.status }}</span>{% endif %}
+            </td>
+            <td><small>{{ a.discharge_date[:10] if a.discharge_date else '—' }}</small></td>
+            <td>
+              {% if a.status == 'admitted' and session.role in ('admin','doctor') %}
+              <a href="{{ url_for('ipd.discharge_patient', adm_id=a.id) }}" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:.75rem">Discharge</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<div class="text-center py-4 text-muted"><i class="bi bi-hospital" style="font-size:2rem"></i><p class="mt-2">No admissions yet</p></div>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Lab tab -->
+  <div class="tab-pane fade" id="labTab">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold text-primary"><i class="bi bi-droplet me-2"></i>Lab Orders</span>
+        {% if session.role in ('admin','doctor') %}
+        <a href="{{ url_for('lab.order_tests', pid=patient.id) }}" class="btn btn-sm btn-outline-primary" style="border-radius:8px;font-size:.8rem"><i class="bi bi-plus"></i> Order Tests</a>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        {% if lab_orders %}
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Date</th><th>Tests Ordered</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+          {% for o in lab_orders %}
+          <tr>
+            <td><small>{{ o.order_date or '—' }}</small></td>
+            <td><small class="text-muted">{{ (o.tests or '—')[:60] }}</small></td>
+            <td>
+              {% if o.status == 'completed' %}<span class="badge bg-success">Done</span>
+              {% elif o.status == 'pending' %}<span class="badge bg-warning text-dark">Pending</span>
+              {% else %}<span class="badge bg-info text-dark">{{ o.status }}</span>{% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('lab.view_report', order_id=o.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:.75rem"><i class="bi bi-eye"></i></a>
+              {% if o.status != 'completed' and session.role in ('admin','doctor') %}
+              <a href="{{ url_for('lab.enter_results', order_id=o.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:.75rem"><i class="bi bi-pencil"></i></a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<div class="text-center py-4 text-muted"><i class="bi bi-droplet" style="font-size:2rem"></i><p class="mt-2">No lab orders yet</p></div>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Bills tab -->
+  <div class="tab-pane fade" id="billsTab">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold text-primary"><i class="bi bi-receipt me-2"></i>Bills</span>
+        {% if session.role in ('admin','doctor') %}
+        <a href="{{ url_for('billing.create_bill', pid=patient.id) }}" class="btn btn-sm btn-outline-warning" style="border-radius:8px;font-size:.8rem"><i class="bi bi-plus"></i> Create Bill</a>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        {% if bills %}
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Bill No</th><th>Date</th><th>Type</th><th>Total</th><th>Paid</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+          {% for b in bills %}
+          <tr>
+            <td><code class="small">{{ b.bill_no or '—' }}</code></td>
+            <td><small>{{ b.bill_date or '—' }}</small></td>
+            <td><span class="badge" style="background:#e0f0ff;color:#1a6fad;font-size:.72rem">{{ b.bill_type }}</span></td>
+            <td class="fw-semibold">₹{{ '%.2f'|format(b.total or 0) }}</td>
+            <td>₹{{ '%.2f'|format(b.paid_amount or 0) }}</td>
+            <td>
+              {% if b.payment_status == 'paid' %}<span class="badge bg-success">Paid</span>
+              {% elif b.payment_status == 'partial' %}<span class="badge bg-warning text-dark">Partial</span>
+              {% else %}<span class="badge bg-danger">Pending</span>{% endif %}
+            </td>
+            <td><a href="{{ url_for('billing.view_bill', bill_id=b.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:.75rem"><i class="bi bi-eye"></i></a></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<div class="text-center py-4 text-muted"><i class="bi bi-receipt" style="font-size:2rem"></i><p class="mt-2">No bills yet</p></div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if session.role != 'patient' %}
+<div class="mt-3"><a href="{{ url_for('patients.patients') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px"><i class="bi bi-arrow-left me-1"></i>Back to Patients</a></div>
+{% endif %}
+{% endblock %}

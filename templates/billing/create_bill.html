@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Create Bill — {{ hospital.name }}{% endblock %}
+{% block page_title %}<i class="bi bi-receipt me-2 text-primary"></i>Create Bill — {{ patient.name }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:860px">
+  <div class="card-header">
+    <span class="fw-semibold text-primary">{{ patient.name }}</span>
+    <small class="text-muted ms-2">{{ patient.uhid }} | {{ patient.age }}y / {{ patient.gender }}</small>
+  </div>
+  <div class="card-body">
+    <form method="POST" id="billForm">
+      <div class="row g-3 mb-3">
+        <div class="col-md-3"><label class="form-label small fw-semibold">Bill Type</label>
+          <select name="bill_type" class="form-select">{% for t in ['OPD','IPD','Emergency','Lab','Pharmacy'] %}<option value="{{ t }}">{{ t }}</option>{% endfor %}</select></div>
+        <div class="col-md-3"><label class="form-label small fw-semibold">Payment Mode</label>
+          <select name="payment_mode" class="form-select">{% for m in ['Cash','Card','UPI','Insurance','Cheque','Online'] %}<option value="{{ m }}">{{ m }}</option>{% endfor %}</select></div>
+        <div class="col-md-6"><label class="form-label small fw-semibold">Notes</label>
+          <input type="text" name="notes" class="form-control" placeholder="Additional notes"/></div>
+      </div>
+
+      <!-- Bill items -->
+      <div class="section-header"><i class="bi bi-list-ul me-2"></i>Bill Items</div>
+      <table class="table table-sm" id="itemsTable">
+        <thead><tr><th style="width:150px">Category</th><th>Description</th><th style="width:80px">Qty</th><th style="width:100px">Unit Price (₹)</th><th style="width:100px">Amount (₹)</th><th style="width:40px"></th></tr></thead>
+        <tbody id="itemsBody">
+          <tr class="item-row">
+            <td><select name="category[]" class="form-select form-select-sm">{% for c in ['Consultation','Procedure','Lab','Medicine','Room','Nursing','Other'] %}<option value="{{ c }}" {% if c=='Consultation' %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></td>
+            <td><input type="text" name="description[]" class="form-control form-control-sm" placeholder="e.g. Doctor Consultation" value="{{ 'Doctor Consultation' }}"/></td>
+            <td><input type="number" name="quantity[]" class="form-control form-control-sm qty" value="1" min="1" step="0.5" oninput="calcRow(this)"/></td>
+            <td><input type="number" name="unit_price[]" class="form-control form-control-sm price" value="0" step="0.01" oninput="calcRow(this)"/></td>
+            <td><input type="number" class="form-control form-control-sm amount" value="0" readonly style="background:#f8f8f8"/></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="removeRow(this)"><i class="bi bi-x"></i></button></td>
+          </tr>
+        </tbody>
+      </table>
+      <button type="button" class="btn btn-sm btn-outline-primary mb-3" style="border-radius:8px" onclick="addRow()"><i class="bi bi-plus me-1"></i>Add Item</button>
+
+      <!-- Totals -->
+      <div class="row justify-content-end">
+        <div class="col-md-5">
+          <table class="table table-sm table-borderless">
+            <tr><td>Subtotal</td><td class="text-end fw-semibold" id="subtotalDisplay">₹0.00</td></tr>
+            <tr><td>Discount (₹) <input type="number" name="discount" id="discountInp" class="form-control form-control-sm d-inline" style="width:80px" value="0" step="0.01" oninput="calcTotal()"/></td><td class="text-end text-danger" id="discountDisplay">-₹0.00</td></tr>
+            <tr><td>Tax (₹) <input type="number" name="tax" id="taxInp" class="form-control form-control-sm d-inline" style="width:80px" value="0" step="0.01" oninput="calcTotal()"/></td><td class="text-end" id="taxDisplay">+₹0.00</td></tr>
+            <tr class="border-top"><td class="fw-bold">Total</td><td class="text-end fw-bold text-primary" id="totalDisplay" style="font-size:1.1rem">₹0.00</td></tr>
+            <tr><td>Amount Paid (₹)</td><td><input type="number" name="paid_amount" id="paidInp" class="form-control form-control-sm" value="0" step="0.01" oninput="calcTotal()"/></td></tr>
+            <tr><td class="fw-semibold">Balance</td><td class="text-end fw-semibold text-danger" id="balanceDisplay">₹0.00</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary px-4" style="border-radius:9px"><i class="bi bi-receipt me-1"></i>Create Bill</button>
+        <a href="{{ url_for('patients.patient_detail', pid=patient.id) }}" class="btn btn-outline-secondary px-4" style="border-radius:9px">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const catOptions='{% for c in ["Consultation","Procedure","Lab","Medicine","Room","Nursing","Other"] %}<option value="{{ c }}">{{ c }}</option>{% endfor %}';
+function addRow(){
+  const tr=document.createElement('tr');tr.className='item-row';
+  tr.innerHTML=`<td><select name="category[]" class="form-select form-select-sm">${catOptions}</select></td><td><input type="text" name="description[]" class="form-control form-control-sm" placeholder="Description"/></td><td><input type="number" name="quantity[]" class="form-control form-control-sm qty" value="1" min="1" step="0.5" oninput="calcRow(this)"/></td><td><input type="number" name="unit_price[]" class="form-control form-control-sm price" value="0" step="0.01" oninput="calcRow(this)"/></td><td><input type="number" class="form-control form-control-sm amount" value="0" readonly style="background:#f8f8f8"/></td><td><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="removeRow(this)"><i class="bi bi-x"></i></button></td>`;
+  document.getElementById('itemsBody').appendChild(tr);
+}
+function removeRow(btn){const row=btn.closest('tr');if(document.querySelectorAll('.item-row').length>1)row.remove();calcTotal();}
+function calcRow(el){const row=el.closest('tr');const qty=+row.querySelector('.qty').value||0;const price=+row.querySelector('.price').value||0;row.querySelector('.amount').value=(qty*price).toFixed(2);calcTotal();}
+function calcTotal(){
+  let sub=0;
+  document.querySelectorAll('.amount').forEach(a=>sub+=+a.value||0);
+  const disc=+document.getElementById('discountInp').value||0;
+  const tax=+document.getElementById('taxInp').value||0;
+  const total=sub-disc+tax;
+  const paid=+document.getElementById('paidInp').value||0;
+  document.getElementById('subtotalDisplay').textContent='₹'+sub.toFixed(2);
+  document.getElementById('discountDisplay').textContent='-₹'+disc.toFixed(2);
+  document.getElementById('taxDisplay').textContent='+₹'+tax.toFixed(2);
+  document.getElementById('totalDisplay').textContent='₹'+total.toFixed(2);
+  document.getElementById('balanceDisplay').textContent='₹'+(total-paid).toFixed(2);
+}
+calcTotal();
+</script>
+{% endblock %}

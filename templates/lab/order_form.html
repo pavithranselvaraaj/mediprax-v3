@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Order Tests — {{ hospital.name }}{% endblock %}
+{% block page_title %}<i class="bi bi-droplet me-2 text-primary"></i>Lab Order — {{ patient.name }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:800px">
+  <div class="card-header"><span class="fw-semibold text-primary">{{ patient.name }} <small class="text-muted">{{ patient.uhid }}</small></span></div>
+  <div class="card-body">
+    <form method="POST">
+      {% if last_visit_id %}<input type="hidden" name="visit_id" value="{{ last_visit_id }}"/>{% endif %}
+      <div class="mb-3"><label class="form-label small fw-semibold">Notes / Clinical Info</label>
+        <input type="text" name="notes" class="form-control" placeholder="Clinical details for lab technician"/></div>
+      <div class="section-header"><i class="bi bi-list-check me-2"></i>Select Tests</div>
+      {% for category, tests in common_tests.items() %}
+      <div class="mb-3">
+        <div class="fw-semibold text-muted small mb-2" style="text-transform:uppercase;letter-spacing:.05em">{{ category }}</div>
+        <div class="d-flex flex-wrap gap-2">
+          {% for test in tests %}
+          <label class="test-chip">
+            <input type="checkbox" name="tests[]" value="{{ test }}" style="display:none"/>
+            <input type="hidden" name="test_cats[]" value="{{ category }}" disabled class="cat-hidden"/>
+            <span class="chip-label">{{ test }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      <div class="mb-3"><label class="form-label small fw-semibold">Custom Test (if not listed)</label>
+        <input type="text" id="customTest" class="form-control" placeholder="Type test name and press Enter"/>
+        <div id="customTestList" class="mt-2 d-flex flex-wrap gap-2"></div>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary px-4" style="border-radius:9px"><i class="bi bi-send me-1"></i>Send to Lab</button>
+        <a href="{{ url_for('patients.patient_detail', pid=patient.id) }}" class="btn btn-outline-secondary px-4" style="border-radius:9px">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<style>
+.test-chip{cursor:pointer}.chip-label{display:inline-block;padding:4px 12px;border-radius:20px;border:1.5px solid #c8ddf0;background:#fff;font-size:.8rem;transition:all .15s}
+.test-chip input:checked+.cat-hidden+.chip-label,.test-chip input:checked~.chip-label{background:#1a6fad;border-color:#1a6fad;color:#fff}
+</style>
+<script>
+document.querySelectorAll('.test-chip input[type=checkbox]').forEach(cb=>{
+  cb.addEventListener('change',()=>{
+    const catInp=cb.nextElementSibling;
+    catInp.disabled=!cb.checked;
+  });
+});
+const customInput=document.getElementById('customTest');
+const customList=document.getElementById('customTestList');
+customInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();
+    const val=customInput.value.trim();if(!val)return;
+    const id='custom_'+Date.now();
+    customList.innerHTML+=`<span class="badge d-flex align-items-center gap-1" style="background:#0e9f8b;color:#fff;border-radius:20px;padding:5px 12px;font-size:.8rem">${val}<input type="hidden" name="tests[]" value="${val}"/><input type="hidden" name="test_cats[]" value="General"/><button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;color:#fff;padding:0;font-size:.9rem">×</button></span>`;
+    customInput.value='';
+  }
+});
+</script>
+{% endblock %}

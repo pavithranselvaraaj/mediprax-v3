@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Manage Beds — {{ hospital.name }}{% endblock %}
+{% block page_title %}<i class="bi bi-grid-3x3 me-2 text-primary"></i>Manage Wards &amp; Beds{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header"><span class="fw-semibold text-primary"><i class="bi bi-plus-circle me-2"></i>Add Ward</span></div>
+      <div class="card-body">
+        <form method="POST">
+          <input type="hidden" name="action" value="add_ward"/>
+          <div class="mb-2"><label class="form-label small fw-semibold">Ward Name</label><input type="text" name="name" class="form-control" required placeholder="e.g. Male General Ward"/></div>
+          <div class="mb-2"><label class="form-label small fw-semibold">Type</label>
+            <select name="ward_type" class="form-select">{% for t in ['General','ICU','Private','Semi-Private','Emergency','Maternity','Paediatric','Surgical'] %}<option value="{{ t }}">{{ t }}</option>{% endfor %}</select></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Total Beds</label><input type="number" name="total_beds" class="form-control" min="0" value="10"/></div>
+          <button type="submit" class="btn btn-primary btn-sm w-100" style="border-radius:8px">Add Ward</button>
+        </form>
+      </div>
+    </div>
+    <div class="card mt-3">
+      <div class="card-header"><span class="fw-semibold text-primary"><i class="bi bi-plus me-2"></i>Add Bed</span></div>
+      <div class="card-body">
+        <form method="POST">
+          <input type="hidden" name="action" value="add_bed"/>
+          <div class="mb-2"><label class="form-label small fw-semibold">Ward</label>
+            <select name="ward_id" class="form-select" required><option value="">— Select Ward —</option>{% for w in wards %}<option value="{{ w.id }}">{{ w.name }}</option>{% endfor %}</select></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Bed Number</label><input type="text" name="bed_number" class="form-control" required placeholder="e.g. B001"/></div>
+          <button type="submit" class="btn btn-success btn-sm w-100" style="border-radius:8px">Add Bed</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header"><span class="fw-semibold text-primary"><i class="bi bi-table me-2"></i>All Beds ({{ beds|length }})</span></div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Bed No</th><th>Ward</th><th>Status</th><th>Change Status</th></tr></thead>
+          <tbody>
+          {% for b in beds %}
+          <tr>
+            <td class="fw-semibold">{{ b.bed_number }}</td>
+            <td>{{ b.ward_name }}</td>
+            <td>
+              {% if b.status=='available' %}<span class="badge bg-success">Available</span>
+              {% elif b.status=='occupied' %}<span class="badge bg-danger">Occupied</span>
+              {% elif b.status=='maintenance' %}<span class="badge bg-warning text-dark">Maintenance</span>
+              {% else %}<span class="badge bg-secondary">{{ b.status }}</span>{% endif %}
+            </td>
+            <td>
+              <form method="POST" class="d-flex gap-1">
+                <input type="hidden" name="action" value="update_bed_status"/>
+                <input type="hidden" name="bed_id" value="{{ b.id }}"/>
+                <select name="status" class="form-select form-select-sm" style="width:130px">
+                  {% for s in ['available','maintenance','reserved'] %}<option value="{{ s }}" {% if b.status==s %}selected{% endif %}>{{ s|title }}</option>{% endfor %}
+                </select>
+                <button type="submit" class="btn btn-sm btn-outline-primary" style="border-radius:7px">Set</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
