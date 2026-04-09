@@ -5,7 +5,7 @@
 <div class="card" style="max-width:860px">
   <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
-      <span class="fw-semibold text-primary"><i class="bi bi-person-circle me-1"></i>{{ patient.name }}</span>
+      <span class="fw-semibold text-primary">{{ patient.name }}</span>
       <small class="text-muted ms-2">{% if patient.age %}{{ patient.age }}y{% endif %}{% if patient.gender %} · {{ patient.gender }}{% endif %}{% if patient.blood_group %} · <span style="color:#b91c1c">{{ patient.blood_group }}</span>{% endif %}</small>
       {% if patient.known_allergies %}<br><small class="text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>Allergy: {{ patient.known_allergies }}</small>{% endif %}
     </div>
@@ -13,126 +13,91 @@
   </div>
   <div class="card-body">
     <form method="POST">
-
-      <!-- Row 1: Visit meta -->
       <div class="row g-3 mb-3">
-        <div class="col-md-3">
-          <label class="form-label small fw-semibold">Visit Date <span class="text-danger">*</span></label>
-          <input type="date" name="visit_date" class="form-control" value="{{ visit.visit_date if visit else today }}" required/>
-        </div>
-        <div class="col-md-2">
-          <label class="form-label small fw-semibold">Time</label>
-          <input type="time" name="visit_time" class="form-control" value="{{ visit.visit_time if visit else now_time }}"/>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label small fw-semibold">Visit Type</label>
+        <div class="col-md-3"><label class="form-label small fw-semibold">Visit Date *</label>
+          <input type="date" name="visit_date" class="form-control" value="{{ visit.visit_date if visit else today }}" required/></div>
+        <div class="col-md-2"><label class="form-label small fw-semibold">Time</label>
+          <input type="time" name="visit_time" class="form-control" value="{{ visit.visit_time if visit else now_time }}"/></div>
+        <div class="col-md-3"><label class="form-label small fw-semibold">Visit Type</label>
           <select name="visit_type" class="form-select">
-            {% for t in ['OPD','IPD','Emergency'] %}
-            <option value="{{ t }}" {% if visit and visit.visit_type==t %}selected{% elif not visit and t=='OPD' %}selected{% endif %}>{{ t }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label small fw-semibold">Doctor</label>
+            {% for t in ['OPD','IPD','Emergency'] %}<option value="{{ t }}" {% if visit and visit.visit_type==t %}selected{% elif not visit and t=='OPD' %}selected{% endif %}>{{ t }}</option>{% endfor %}
+          </select></div>
+        <div class="col-md-4"><label class="form-label small fw-semibold">Doctor</label>
           <select name="doctor_id" class="form-select">
-            <option value="">— Select Doctor —</option>
-            {% for d in doctors %}
-            <option value="{{ d.id }}" {% if visit and visit.doctor_id==d.id %}selected{% endif %}>{{ d.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label small fw-semibold"><i class="bi bi-calendar-check me-1 text-warning"></i>Follow-up Date</label>
-          <input type="date" name="followup_date" class="form-control" value="{{ visit.followup_date if visit and visit.followup_date else '' }}"/>
-        </div>
-        <div class="col-md-8">
-          <label class="form-label small fw-semibold">Follow-up Notes</label>
-          <input type="text" name="followup_notes" class="form-control" value="{{ visit.followup_notes if visit and visit.followup_notes else '' }}" placeholder="Instructions for next visit"/>
-        </div>
+            <option value="">— Select —</option>
+            {% for d in doctors %}<option value="{{ d.id }}" {% if visit and visit.doctor_id==d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+          </select></div>
+        <div class="col-md-3"><label class="form-label small fw-semibold"><i class="bi bi-calendar-check me-1 text-warning"></i>Follow-up Date</label>
+          <input type="date" name="followup_date" class="form-control" value="{{ visit.followup_date if visit and visit.followup_date else '' }}"/></div>
+        <div class="col-md-9"><label class="form-label small fw-semibold">Follow-up Notes</label>
+          <input type="text" name="followup_notes" class="form-control" value="{{ visit.followup_notes if visit and visit.followup_notes else '' }}" placeholder="Instructions for next visit"/></div>
       </div>
 
-      <!-- Vitals -->
       <div class="section-header"><i class="bi bi-heart-pulse me-2"></i>Vitals</div>
       <div class="row g-2 mb-3">
-        <div class="col-6 col-md-2"><label class="form-label small fw-semibold">BP Systolic</label>
-          <div class="input-group input-group-sm"><input type="number" name="bp_systolic" class="form-control" placeholder="120" value="{{ visit.bp_systolic if visit and visit.bp_systolic else '' }}"/><span class="input-group-text" style="font-size:.7rem">mm</span></div></div>
-        <div class="col-6 col-md-2"><label class="form-label small fw-semibold">BP Diastolic</label>
-          <div class="input-group input-group-sm"><input type="number" name="bp_diastolic" class="form-control" placeholder="80" value="{{ visit.bp_diastolic if visit and visit.bp_diastolic else '' }}"/><span class="input-group-text" style="font-size:.7rem">mm</span></div></div>
-        <div class="col-6 col-md-2"><label class="form-label small fw-semibold">Pulse</label>
-          <div class="input-group input-group-sm"><input type="number" name="pulse" class="form-control" placeholder="72" value="{{ visit.pulse if visit and visit.pulse else '' }}"/><span class="input-group-text" style="font-size:.7rem">bpm</span></div></div>
-        <div class="col-6 col-md-2"><label class="form-label small fw-semibold">Temperature</label>
-          <div class="input-group input-group-sm"><input type="number" name="temperature" class="form-control" placeholder="98.6" step="0.1" value="{{ visit.temperature if visit and visit.temperature else '' }}"/><span class="input-group-text" style="font-size:.7rem">°F</span></div></div>
-        <div class="col-6 col-md-2"><label class="form-label small fw-semibold">Weight</label>
-          <div class="input-group input-group-sm"><input type="number" name="weight" class="form-control" placeholder="65" step="0.1" value="{{ visit.weight if visit and visit.weight else '' }}"/><span class="input-group-text" style="font-size:.7rem">kg</span></div></div>
-        <div class="col-6 col-md-2"><label class="form-label small fw-semibold">Height</label>
-          <div class="input-group input-group-sm"><input type="number" name="height" class="form-control" placeholder="165" value="{{ visit.height if visit and visit.height else '' }}"/><span class="input-group-text" style="font-size:.7rem">cm</span></div></div>
-        <div class="col-6 col-md-2"><label class="form-label small fw-semibold">SpO₂</label>
-          <div class="input-group input-group-sm"><input type="number" name="spo2" class="form-control" placeholder="99" value="{{ visit.spo2 if visit and visit.spo2 else '' }}"/><span class="input-group-text" style="font-size:.7rem">%</span></div></div>
-        <div class="col-6 col-md-2"><label class="form-label small fw-semibold">RR</label>
-          <div class="input-group input-group-sm"><input type="number" name="rr" class="form-control" placeholder="16" value="{{ visit.rr if visit and visit.rr else '' }}"/><span class="input-group-text" style="font-size:.7rem">/min</span></div></div>
-        <div class="col-6 col-md-2"><label class="form-label small fw-semibold">Blood Sugar</label>
-          <div class="input-group input-group-sm"><input type="number" name="blood_sugar" class="form-control" placeholder="110" step="0.1" value="{{ visit.blood_sugar if visit and visit.blood_sugar else '' }}"/><span class="input-group-text" style="font-size:.7rem">mg/dL</span></div></div>
+        {% for fname, label, placeholder, unit, step in [
+          ('bp_systolic','BP Systolic','120','mmHg','1'),
+          ('bp_diastolic','BP Diastolic','80','mmHg','1'),
+          ('pulse','Pulse','72','bpm','1'),
+          ('temperature','Temperature','98.6','°F','0.1'),
+          ('weight','Weight','65','kg','0.1'),
+          ('height','Height','165','cm','1'),
+          ('spo2','SpO₂','99','%','1'),
+          ('rr','RR','16','/min','1'),
+          ('blood_sugar','Blood Sugar','110','mg/dL','0.1')] %}
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold">{{ label }}</label>
+          <div class="input-group input-group-sm">
+            <input type="number" name="{{ fname }}" class="form-control" placeholder="{{ placeholder }}" step="{{ step }}" value="{{ visit[fname] if visit and visit[fname] else '' }}"/>
+            <span class="input-group-text" style="font-size:.7rem">{{ unit }}</span>
+          </div>
+        </div>
+        {% endfor %}
       </div>
 
-      <!-- Clinical -->
       <div class="section-header"><i class="bi bi-stethoscope me-2"></i>Clinical Details</div>
       <div class="row g-3 mb-3">
         <div class="col-md-6" style="position:relative">
           <label class="form-label small fw-semibold"><i class="bi bi-chat-square-medical me-1"></i>Chief Complaints</label>
-          <textarea name="complaints" id="complaintsInput" class="form-control" rows="3"
-                    placeholder="Type to get suggestions — F→Fever, G→Giddiness, R→RTA…">{{ visit.complaints if visit else '' }}</textarea>
-          <div class="ac-box" id="acBoxComplaints"></div>
+          <textarea name="complaints" id="complaintsInput" class="form-control" rows="3" placeholder="Type for suggestions — F→Fever, G→Giddiness…">{{ visit.complaints if visit else '' }}</textarea>
+          <div class="ac-box" id="acComplaints"></div>
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">History of Present Illness</label>
-          <textarea name="history_of_illness" class="form-control" rows="3"
-                    placeholder="Duration, onset, progression, associated symptoms…">{{ visit.history_of_illness if visit else '' }}</textarea>
+          <textarea name="history_of_illness" class="form-control" rows="3" placeholder="Duration, onset, progression…">{{ visit.history_of_illness if visit else '' }}</textarea>
         </div>
         <div class="col-12">
           <label class="form-label small fw-semibold">Examination Findings</label>
-          <textarea name="examination_findings" class="form-control" rows="3"
-                    placeholder="General examination, systemic examination findings…">{{ visit.examination_findings if visit else '' }}</textarea>
+          <textarea name="examination_findings" class="form-control" rows="3" placeholder="General and systemic examination…">{{ visit.examination_findings if visit else '' }}</textarea>
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Primary Diagnosis</label>
-          <input type="text" name="primary_diagnosis" class="form-control"
-                 value="{{ visit.primary_diagnosis if visit else '' }}"
-                 placeholder="e.g. Acute Pharyngitis, Type 2 Diabetes Mellitus"/>
-        </div>
+          <input type="text" name="primary_diagnosis" class="form-control" value="{{ visit.primary_diagnosis if visit else '' }}" placeholder="e.g. Acute Pharyngitis"/></div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Secondary Diagnosis</label>
-          <input type="text" name="secondary_diagnosis" class="form-control"
-                 value="{{ visit.secondary_diagnosis if visit else '' }}"
-                 placeholder="e.g. Hypertension, Anaemia"/>
-        </div>
+          <input type="text" name="secondary_diagnosis" class="form-control" value="{{ visit.secondary_diagnosis if visit else '' }}" placeholder="e.g. Hypertension"/></div>
         <div class="col-12">
           <label class="form-label small fw-semibold">Investigations Ordered</label>
-          <textarea name="investigation" class="form-control" rows="2"
-                    placeholder="CBC, LFT, KFT, ECG, X-Ray Chest, Blood Culture…">{{ visit.investigation if visit else '' }}</textarea>
+          <textarea name="investigation" class="form-control" rows="2" placeholder="CBC, LFT, KFT, ECG, X-Ray…">{{ visit.investigation if visit else '' }}</textarea>
         </div>
       </div>
 
-      <!-- Prescription -->
       <div class="section-header"><i class="bi bi-capsule me-2"></i>Prescription</div>
       <div class="mb-3" style="position:relative">
-        <label class="form-label small fw-semibold">Medicines <small class="text-muted fw-normal ms-1">— type for suggestions</small></label>
-        <textarea name="prescription" id="prescriptionInput" class="form-control font-monospace" rows="7"
-                  placeholder="Tab. Paracetamol 500mg  — 1-0-1 × 5 days&#10;Tab. Amoxicillin 500mg  — 1-1-1 × 7 days&#10;Syr. ORS               — as required">{{ visit.prescription if visit else '' }}</textarea>
-        <div class="ac-box" id="acBoxMed"></div>
+        <label class="form-label small fw-semibold">Medicines <small class="text-muted fw-normal">— type for suggestions</small></label>
+        <textarea name="prescription" id="prescriptionInput" class="form-control font-monospace" rows="6" placeholder="Tab. Paracetamol 500mg  — 1-0-1 × 5 days&#10;Tab. Amoxicillin 500mg  — 1-1-1 × 7 days">{{ visit.prescription if visit else '' }}</textarea>
+        <div class="ac-box" id="acMedicine"></div>
       </div>
-
       <div class="mb-3">
         <label class="form-label small fw-semibold">Advice / Instructions</label>
-        <textarea name="advice" class="form-control" rows="2"
-                  placeholder="Rest, diet, activity restrictions, when to return immediately…">{{ visit.advice if visit else '' }}</textarea>
+        <textarea name="advice" class="form-control" rows="2" placeholder="Rest, diet, activity restrictions…">{{ visit.advice if visit else '' }}</textarea>
       </div>
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Doctor's Notes</label>
-        <textarea name="notes" class="form-control" rows="2"
-                  placeholder="Internal clinical notes (not printed on prescription)…">{{ visit.notes if visit else '' }}</textarea>
+        <label class="form-label small fw-semibold">Doctor's Notes <small class="text-muted fw-normal">(not printed)</small></label>
+        <textarea name="notes" class="form-control" rows="2" placeholder="Internal notes…">{{ visit.notes if visit else '' }}</textarea>
       </div>
 
-      <div class="d-flex gap-2 pt-1">
+      <div class="d-flex gap-2">
         <button type="submit" class="btn btn-success px-4" style="border-radius:9px"><i class="bi bi-check-lg me-1"></i>Save Visit</button>
         <a href="{{ url_for('patients.patient_detail', pid=patient.id) }}" class="btn btn-outline-secondary px-4" style="border-radius:9px">Cancel</a>
       </div>
@@ -148,20 +113,18 @@ function makeAC(inp,box,url,getQ,replace){
     if(!list.length){box.style.display='none';return;}
     items=list;idx=-1;
     const q=getQ(inp.value).toLowerCase();
-    box.innerHTML=list.map((t,i)=>{const lo=t.toLowerCase(),pos=lo.indexOf(q);const hl=pos>=0?t.slice(0,pos)+'<strong>'+t.slice(pos,pos+q.length)+'</strong>'+t.slice(pos+q.length):t;return`<div class="ac-item" data-i="${i}">${hl}</div>`;}).join('');
+    box.innerHTML=list.map((t,i)=>{const lo=t.toLowerCase(),pos=lo.indexOf(q);const hl=pos>=0?t.slice(0,pos)+'<strong>'+t.slice(pos,pos+q.length)+'</strong>'+t.slice(pos+q.length):t;return'<div class="ac-item" data-i="'+i+'">'+hl+'</div>';}).join('');
     box.style.display='block';
-    box.querySelectorAll('.ac-item').forEach(el=>el.addEventListener('mousedown',e=>{e.preventDefault();pick(+el.dataset.i);}));
+    box.querySelectorAll('.ac-item').forEach(el=>el.addEventListener('mousedown',e=>{e.preventDefault();inp.value=replace(inp.value,items[+el.dataset.i]);box.style.display='none';inp.focus();}));
   }
-  function pick(i){inp.value=replace(inp.value,items[i]);box.style.display='none';inp.focus();}
-  inp.addEventListener('input',async()=>{const q=getQ(inp.value);if(!q||q.length<1){box.style.display='none';return;}try{const r=await fetch(url+'?q='+encodeURIComponent(q));render(await r.json());}catch{box.style.display='none';}});
-  inp.addEventListener('keydown',e=>{const els=box.querySelectorAll('.ac-item');if(box.style.display==='none'||!els.length)return;if(e.key==='ArrowDown'){e.preventDefault();idx=(idx+1)%els.length;}else if(e.key==='ArrowUp'){e.preventDefault();idx=(idx-1+els.length)%els.length;}else if(e.key==='Enter'&&idx>=0){e.preventDefault();pick(idx);return;}else if(e.key==='Escape'){box.style.display='none';return;}els.forEach((el,i)=>el.style.background=i===idx?'#e8f0fe':'');});
+  inp.addEventListener('input',async()=>{const q=getQ(inp.value);if(!q){box.style.display='none';return;}try{const r=await fetch(url+'?q='+encodeURIComponent(q));render(await r.json());}catch{box.style.display='none';}});
   document.addEventListener('click',e=>{if(!box.contains(e.target)&&e.target!==inp)box.style.display='none';});
 }
 const lT=t=>{const p=t.split(/[,\n]/);return p[p.length-1].trim();};
-const rL=(t,r)=>{const p=t.split(/([,\n])/);for(let i=p.length-1;i>=0;i--){if(!/^[,\n]$/.test(p[i])&&p[i].trim()!==''){p[i]=r;break;}}return p.join('');};
+const rL=(t,r)=>{const p=t.split(/([,\n])/);for(let i=p.length-1;i>=0;i--){if(!/^[,\n]$/.test(p[i])&&p[i].trim()){p[i]=r;break;}}return p.join('');};
 const lLine=t=>{const l=t.split('\n');return l[l.length-1].trim();};
 const rLine=(t,r)=>{const l=t.split('\n');l[l.length-1]=r+'  — ';return l.join('\n');};
-makeAC(document.getElementById('complaintsInput'),document.getElementById('acBoxComplaints'),'/ai/complaint',lT,rL);
-makeAC(document.getElementById('prescriptionInput'),document.getElementById('acBoxMed'),'/ai/medicine',lLine,rLine);
+makeAC(document.getElementById('complaintsInput'),document.getElementById('acComplaints'),'/ai/complaint',lT,rL);
+makeAC(document.getElementById('prescriptionInput'),document.getElementById('acMedicine'),'/ai/medicine',lLine,rLine);
 </script>
 {% endblock %}

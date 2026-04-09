@@ -17,7 +17,7 @@
           <td class="fw-semibold">{{ t.test_name }}</td>
           <td><small class="text-muted">{{ t.test_category }}</small></td>
           <td><input type="text" name="result_{{ t.id }}" class="form-control form-control-sm" value="{{ t.result or '' }}" placeholder="Value"/></td>
-          <td><input type="text" name="unit_{{ t.id }}" class="form-control form-control-sm" value="{{ t.unit or '' }}" style="width:80px" placeholder="mg/dL"/></td>
+          <td><input type="text" name="unit_{{ t.id }}" class="form-control form-control-sm" value="{{ t.unit or '' }}" placeholder="mg/dL" style="width:80px"/></td>
           <td><input type="text" name="ref_{{ t.id }}" class="form-control form-control-sm" value="{{ t.reference_range or '' }}" placeholder="Normal range"/></td>
           <td><input type="text" name="remarks_{{ t.id }}" class="form-control form-control-sm" value="{{ t.remarks or '' }}" placeholder="H/L/Normal"/></td>
         </tr>

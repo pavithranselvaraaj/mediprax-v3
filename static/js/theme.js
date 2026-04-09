@@ -1,10 +1,12 @@
-function toggleTheme() {
-  document.body.classList.toggle('dark-mode');
-  localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+function toggleTheme(){
+
+let body = document.body
+
+body.classList.toggle("dark-mode")
+
+localStorage.setItem(
+"theme",
+body.classList.contains("dark-mode")
+)
+
 }
-// Apply saved theme on load
-(function() {
-  if (localStorage.getItem('theme') === 'dark') {
-    document.body.classList.add('dark-mode');
-  }
-})();
