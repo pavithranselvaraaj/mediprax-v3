@@ -22,8 +22,10 @@ def sa_login():
     if session.get('role') == 'super_admin':
         return redirect(url_for('super_admin.hospital_list'))
     if request.method == 'POST':
-        email = request.form.get('email','').strip().lower()
+        email = (request.form.get('email') or '').strip().lower()
         pw    = request.form.get('password','')
+        if not _email_ok(email):
+            flash('Enter a valid email.','danger'); return render_template('admin/sa_login.html')
         db    = get_db()
         # Support both email column and legacy username column
         cols = {r[1] for r in db.execute('PRAGMA table_info(super_admins)')}
@@ -170,8 +172,16 @@ def visit_hospital(hid):
     if not hosp: flash('Not found.','danger'); return redirect(url_for('super_admin.hospital_list'))
     admin = db.execute("SELECT * FROM users WHERE hospital_id=? AND role='admin' LIMIT 1",(hid,)).fetchone()
     if not admin:
-        flash('No admin user for this hospital. Create one first.','warning')
-        return redirect(url_for('super_admin.hospital_detail', hid=hid))
+        # Auto-create a system admin user for this hospital so SA can access it
+        try:
+            un = f'admin_h{hid}'
+            db.execute('INSERT INTO users (hospital_id,username,password_hash,role,name) VALUES (?,?,?,?,?)',
+                       [hid, un, _h('demo'), 'admin', 'Hospital Admin'])
+            db.commit()
+            admin = db.execute("SELECT * FROM users WHERE hospital_id=? AND role='admin' LIMIT 1",(hid,)).fetchone()
+        except Exception:
+            flash('Could not create admin user for this hospital.','danger')
+            return redirect(url_for('super_admin.hospital_detail', hid=hid))
     # Stash SA identity so "Return" works
     session['_sa_return']   = True
     session['_sa_id']       = session.get('sa_id')
@@ -196,6 +206,10 @@ def return_to_admin():
     sa_id = session.get('_sa_id')
     sa_name = session.get('_sa_name','Super Admin')
     sa_un   = session.get('_sa_username','')
+    if not sa_id:
+        # Not coming from SA visit, just go to SA login
+        session.clear()
+        return redirect(url_for('super_admin.sa_login'))
     session.clear()
     session['role']     = 'super_admin'
     session['sa_id']    = sa_id

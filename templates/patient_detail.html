@@ -68,6 +68,40 @@
   </div>
 </div>
 
+{% if admissions %}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="fw-semibold text-primary"><i class="bi bi-hospital me-2"></i>IPD Admissions</span>
+    <span class="badge" style="background:#fce8e8;color:#c0392b">{{ admissions|length }}</span>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Admission No</th><th>Ward/Bed</th><th>Admission Date</th><th>Status</th><th>Discharge</th><th></th></tr></thead>
+      <tbody>
+      {% for adm in admissions %}
+      <tr>
+        <td><code>{{ adm.admission_no or '—' }}</code></td>
+        <td>{{ adm.ward_name or '—' }} / {{ adm.bed_number or '—' }}</td>
+        <td><small>{{ adm.admission_date[:10] if adm.admission_date else '—' }}</small></td>
+        <td>
+          {% if adm.status == 'admitted' %}<span class="badge bg-danger">Admitted</span>
+          {% elif adm.status == 'discharged' %}<span class="badge bg-success">Discharged</span>
+          {% else %}<span class="badge bg-secondary">{{ adm.status }}</span>{% endif %}
+        </td>
+        <td><small>{{ adm.discharge_date[:10] if adm.discharge_date else '—' }}</small></td>
+        <td>
+          {% if adm.status == 'admitted' and session.role in ('admin','doctor') %}
+          <a href="{{ url_for('ipd.discharge_patient', adm_id=adm.id) }}" class="btn btn-sm btn-outline-success py-0 px-2"><i class="bi bi-box-arrow-right me-1"></i>Discharge</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <div class="card">
   <div class="card-header d-flex justify-content-between align-items-center">
     <div>
@@ -135,6 +169,7 @@
           {% if v.secondary_diagnosis %}<div class="col-12 col-md-6"><div class="vfield"><div class="vfield-label"><i class="bi bi-clipboard2 me-1"></i>Secondary Diagnosis</div><div class="vfield-val">{{ v.secondary_diagnosis }}</div></div></div>{% endif %}
           {% if v.investigation %}<div class="col-12"><div class="vfield"><div class="vfield-label"><i class="bi bi-search me-1"></i>Investigations</div><div class="vfield-val">{{ v.investigation }}</div></div></div>{% endif %}
           {% if v.prescription %}<div class="col-12"><div class="vfield"><div class="vfield-label"><i class="bi bi-capsule me-1"></i>Prescription</div><div class="rx-block">{{ v.prescription }}</div></div></div>{% endif %}
+          {% if v.prescription_image %}<div class="col-12"><div class="vfield"><div class="vfield-label"><i class="bi bi-image me-1"></i>Prescription Image</div><a href="{{ url_for('static', filename='uploads/prescriptions/' + v.prescription_image) }}" target="_blank"><img src="{{ url_for('static', filename='uploads/prescriptions/' + v.prescription_image) }}" style="max-width:100%;max-height:400px;border-radius:8px;border:1px solid #e0eaf5;cursor:zoom-in" alt="Prescription image"></a></div></div>{% endif %}
           {% if v.advice %}<div class="col-12"><div class="vfield"><div class="vfield-label"><i class="bi bi-info-circle me-1"></i>Advice</div><div class="vfield-val text-muted">{{ v.advice }}</div></div></div>{% endif %}
           {% if v.followup_date %}<div class="col-12"><div class="followup-banner"><i class="bi bi-calendar-check-fill me-2"></i>Follow-up: <strong>{{ v.followup_date }}</strong>{% if v.followup_notes %} — {{ v.followup_notes }}{% endif %}</div></div>{% endif %}
         </div>

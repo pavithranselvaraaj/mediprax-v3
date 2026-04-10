@@ -135,7 +135,7 @@ def create_bill(pid):
     ).fetchone()
     # Load open admissions
     open_adm = db.execute(
-        "SELECT id, admission_no FROM admissions WHERE patient_id=? AND status='admitted'", (pid,)
+        "SELECT id, admission_no FROM admissions WHERE patient_id=? AND hospital_id=? AND status='admitted'", (pid, hid)
     ).fetchall()
     return render_template('billing/create_bill.html',
                            patient=dict(patient),

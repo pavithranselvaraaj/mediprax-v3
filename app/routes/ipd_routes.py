@@ -58,9 +58,9 @@ def admit_patient(pid):
         ])
         # Mark bed as occupied
         if bed_id:
-            db.execute("UPDATE beds SET status='occupied' WHERE id=?", (bed_id,))
+            db.execute("UPDATE beds SET status='occupied' WHERE id=? AND hospital_id=?", (bed_id, hid))
         # Update patient type
-        db.execute("UPDATE patients SET patient_type='IPD' WHERE id=?", (pid,))
+        db.execute("UPDATE patients SET patient_type='IPD' WHERE id=? AND hospital_id=?", (pid, hid))
         db.commit()
         from silent_backup import backup; backup()
         flash(f'Patient admitted successfully! Admission No: {adm_no}', 'success')
@@ -115,9 +115,9 @@ def discharge_patient(adm_id):
         ])
         # Free the bed
         if adm['bed_id']:
-            db.execute("UPDATE beds SET status='available' WHERE id=?", (adm['bed_id'],))
+            db.execute("UPDATE beds SET status='available' WHERE id=? AND hospital_id=?", (adm['bed_id'], hid))
         # Update patient type back to OPD
-        db.execute("UPDATE patients SET patient_type='OPD' WHERE id=?", (adm['patient_id'],))
+        db.execute("UPDATE patients SET patient_type='OPD' WHERE id=? AND hospital_id=?", (adm['patient_id'], hid))
         db.commit()
         from silent_backup import backup; backup()
         flash('Patient discharged successfully.', 'success')

@@ -1,6 +1,10 @@
 from flask import Blueprint, request, render_template, redirect, url_for, session, flash, jsonify
 from ..database import get_db
 from datetime import date, datetime
+from ..utils.validators import (
+    validate_phone, normalize_phone, validate_email, validate_date, validate_gender,
+    validate_name, validate_aadhar, validate_dob, safe_int
+)
 
 patient_routes = Blueprint('patients', __name__, url_prefix='/patients')
 
@@ -24,8 +28,9 @@ def _safe(row, keys):
     return d
 
 def _next_uhid(db, hid):
-    n = db.execute('SELECT COUNT(*) FROM patients WHERE hospital_id=?',(hid,)).fetchone()[0]
-    return f'PT-{hid:02d}-{n+1:05d}'
+    r = db.execute('SELECT MAX(id) FROM patients WHERE hospital_id=?',(hid,)).fetchone()[0]
+    n = (r or 0) + 1
+    return f'PT-{hid:02d}-{n:05d}'
 
 PKEYS = ['id','hospital_id','org_id','uhid','name','dob','age','gender',
          'guardian_name','guardian_relation','emergency_contact','emergency_phone',
@@ -39,7 +44,8 @@ VKEYS = ['id','patient_id','hospital_id','visit_type','token_no','visit_date',
          'examination_findings','primary_diagnosis','secondary_diagnosis',
          'investigation','prescription','advice','notes',
          'bp_systolic','bp_diastolic','pulse','temperature','weight',
-         'height','spo2','rr','blood_sugar','followup_date','followup_notes']
+         'height','spo2','rr','blood_sugar','followup_date','followup_notes',
+         'prescription_image']
 
 @patient_routes.route('/')
 def patients():
@@ -68,8 +74,28 @@ def add_patient_view():
     hid = _hid(); db = get_db()
     if request.method == 'POST':
         f = request.form
-        dob = f.get('dob','').strip() or None
-        age = _age(dob) or f.get('age',type=int)
+        name = (f.get('name') or '').strip()
+        if not validate_name(name):
+            flash('Name is required (2-100 letters only).','danger'); return render_template('patient_form.html', patient=f, action='Add')
+        dob = (f.get('dob') or '').strip() or None
+        if dob and not validate_dob(dob):
+            flash('DOB must be YYYY-MM-DD and not in the future.','danger'); return render_template('patient_form.html', patient=f, action='Add')
+        age = _age(dob) or safe_int(f.get('age'), default=None, min_val=0, max_val=120)
+        phone = normalize_phone(f.get('phone'))
+        if f.get('phone') and not validate_phone(f.get('phone')):
+            flash('Enter a valid 10-digit Indian mobile number (starting with 6-9).','danger'); return render_template('patient_form.html', patient=f, action='Add')
+        email = (f.get('email') or '').strip().lower()
+        if email and not validate_email(email):
+            flash('Invalid email format.','danger'); return render_template('patient_form.html', patient=f, action='Add')
+        gender = f.get('gender')
+        if gender and not validate_gender(gender):
+            flash('Invalid gender.','danger'); return render_template('patient_form.html', patient=f, action='Add')
+        individual_number = (f.get('individual_number') or '').strip()
+        if individual_number and not validate_aadhar(individual_number):
+            flash('Aadhar must be exactly 12 digits.','danger'); return render_template('patient_form.html', patient=f, action='Add')
+        emergency_phone = (f.get('emergency_phone') or '').strip()
+        if emergency_phone and not validate_phone(emergency_phone):
+            flash('Emergency phone must be a valid 10-digit Indian mobile number.','danger'); return render_template('patient_form.html', patient=f, action='Add')
         uhid = _next_uhid(db, hid)
         org_id = db.execute('SELECT org_id FROM hospitals WHERE id=?',(hid,)).fetchone()['org_id']
         db.execute('''INSERT INTO patients
@@ -79,18 +105,18 @@ def add_patient_view():
              nationality,comorbidity,known_allergies,past_medical_history,past_surgical_history,
              family_history,habits,patient_type)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', [
-            hid,org_id,uhid,f.get('name','').strip(),dob,age,f.get('gender'),
-            f.get('guardian_name','').strip(),f.get('guardian_relation','').strip(),
-            f.get('emergency_contact','').strip(),f.get('emergency_phone','').strip(),
-            f.get('insurance','').strip(),f.get('insurance_no','').strip(),
-            f.get('blood_group'),f.get('height_cm',type=int),
-            f.get('address','').strip(),f.get('city','').strip(),f.get('state','').strip(),
-            f.get('phone','').strip(),f.get('email','').strip(),
-            f.get('individual_number','').strip(),f.get('occupation','').strip(),
-            f.get('marital_status',''),f.get('nationality','Indian').strip(),
-            f.get('comorbidity','').strip(),f.get('known_allergies','').strip(),
-            f.get('past_medical_history','').strip(),f.get('past_surgical_history','').strip(),
-            f.get('family_history','').strip(),f.get('habits','').strip(),
+            hid,org_id,uhid,name,dob,age,gender,
+            (f.get('guardian_name') or '').strip(),(f.get('guardian_relation') or '').strip(),
+            (f.get('emergency_contact') or '').strip(),(f.get('emergency_phone') or '').strip(),
+            (f.get('insurance') or '').strip(),(f.get('insurance_no') or '').strip(),
+            f.get('blood_group'), safe_int(f.get('height_cm'), default=None, min_val=30, max_val=250),
+            (f.get('address') or '').strip(),(f.get('city') or '').strip(),(f.get('state') or '').strip(),
+            phone, email,
+            (f.get('individual_number') or '').strip(),(f.get('occupation') or '').strip(),
+            f.get('marital_status',''),(f.get('nationality') or 'Indian').strip(),
+            (f.get('comorbidity') or '').strip(),(f.get('known_allergies') or '').strip(),
+            (f.get('past_medical_history') or '').strip(),(f.get('past_surgical_history') or '').strip(),
+            (f.get('family_history') or '').strip(),(f.get('habits') or '').strip(),
             f.get('patient_type','OPD')
         ])
         db.commit()
@@ -129,8 +155,28 @@ def edit_patient(pid):
     patient = _safe(db.execute('SELECT * FROM patients WHERE id=? AND hospital_id=?',(pid,hid)).fetchone(), PKEYS)
     if request.method == 'POST':
         f = request.form
-        dob = f.get('dob','').strip() or None
-        age = _age(dob) or f.get('age',type=int)
+        name = (f.get('name') or '').strip()
+        if not validate_name(name):
+            flash('Name is required (2-100 letters only).','danger'); return render_template('patient_form.html', patient=patient, action='Edit')
+        dob = (f.get('dob') or '').strip() or None
+        if dob and not validate_dob(dob):
+            flash('DOB must be YYYY-MM-DD and not in the future.','danger'); return render_template('patient_form.html', patient=patient, action='Edit')
+        age = _age(dob) or safe_int(f.get('age'), default=None, min_val=0, max_val=120)
+        phone = normalize_phone(f.get('phone'))
+        if f.get('phone') and not validate_phone(f.get('phone')):
+            flash('Enter a valid 10-digit Indian mobile number (starting with 6-9).','danger'); return render_template('patient_form.html', patient=patient, action='Edit')
+        email = (f.get('email') or '').strip().lower()
+        if email and not validate_email(email):
+            flash('Invalid email format.','danger'); return render_template('patient_form.html', patient=patient, action='Edit')
+        gender = f.get('gender')
+        if gender and not validate_gender(gender):
+            flash('Invalid gender.','danger'); return render_template('patient_form.html', patient=patient, action='Edit')
+        individual_number = (f.get('individual_number') or '').strip()
+        if individual_number and not validate_aadhar(individual_number):
+            flash('Aadhar must be exactly 12 digits.','danger'); return render_template('patient_form.html', patient=patient, action='Edit')
+        emergency_phone = (f.get('emergency_phone') or '').strip()
+        if emergency_phone and not validate_phone(emergency_phone):
+            flash('Emergency phone must be a valid 10-digit Indian mobile number.','danger'); return render_template('patient_form.html', patient=patient, action='Edit')
         db.execute('''UPDATE patients SET
             name=?,dob=?,age=?,gender=?,guardian_name=?,guardian_relation=?,
             emergency_contact=?,emergency_phone=?,insurance=?,insurance_no=?,
@@ -139,18 +185,18 @@ def edit_patient(pid):
             comorbidity=?,known_allergies=?,past_medical_history=?,
             past_surgical_history=?,family_history=?,habits=?,patient_type=?,
             updated_at=CURRENT_TIMESTAMP WHERE id=? AND hospital_id=?''', [
-            f.get('name','').strip(),dob,age,f.get('gender'),
-            f.get('guardian_name','').strip(),f.get('guardian_relation','').strip(),
-            f.get('emergency_contact','').strip(),f.get('emergency_phone','').strip(),
-            f.get('insurance','').strip(),f.get('insurance_no','').strip(),
-            f.get('blood_group'),f.get('height_cm',type=int),
-            f.get('address','').strip(),f.get('city','').strip(),f.get('state','').strip(),
-            f.get('phone','').strip(),f.get('email','').strip(),
-            f.get('individual_number','').strip(),f.get('occupation','').strip(),
-            f.get('marital_status',''),f.get('nationality','Indian').strip(),
-            f.get('comorbidity','').strip(),f.get('known_allergies','').strip(),
-            f.get('past_medical_history','').strip(),f.get('past_surgical_history','').strip(),
-            f.get('family_history','').strip(),f.get('habits','').strip(),
+            name,dob,age,f.get('gender'),
+            (f.get('guardian_name') or '').strip(),(f.get('guardian_relation') or '').strip(),
+            (f.get('emergency_contact') or '').strip(),(f.get('emergency_phone') or '').strip(),
+            (f.get('insurance') or '').strip(),(f.get('insurance_no') or '').strip(),
+            f.get('blood_group'), safe_int(f.get('height_cm'), default=None, min_val=30, max_val=250),
+            (f.get('address') or '').strip(),(f.get('city') or '').strip(),(f.get('state') or '').strip(),
+            phone,email,
+            (f.get('individual_number') or '').strip(),(f.get('occupation') or '').strip(),
+            f.get('marital_status',''),(f.get('nationality') or 'Indian').strip(),
+            (f.get('comorbidity') or '').strip(),(f.get('known_allergies') or '').strip(),
+            (f.get('past_medical_history') or '').strip(),(f.get('past_surgical_history') or '').strip(),
+            (f.get('family_history') or '').strip(),(f.get('habits') or '').strip(),
             f.get('patient_type','OPD'),pid,hid])
         db.commit()
         try:

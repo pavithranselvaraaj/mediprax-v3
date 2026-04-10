@@ -42,6 +42,8 @@
     <li class="nav-label">Clinical</li>
     <li class="nav-item"><a href="{{ url_for('lab.lab_list') }}" class="nav-link {% if 'lab.' in (request.endpoint or '') %}active{% endif %}"><i class="bi bi-droplet-half"></i> Laboratory</a></li>
     <li class="nav-item"><a href="{{ url_for('appointments.appointments') }}" class="nav-link {% if 'appointments.' in (request.endpoint or '') %}active{% endif %}"><i class="bi bi-calendar3"></i> Appointments</a></li>
+    <li class="nav-item"><a href="{{ url_for('ipd.ward_view') }}" class="nav-link {% if 'ipd.' in (request.endpoint or '') %}active{% endif %}"><i class="bi bi-hospital"></i> IPD / Wards</a></li>
+    <li class="nav-item"><a href="{{ url_for('billing.bill_list') }}" class="nav-link {% if 'billing.' in (request.endpoint or '') %}active{% endif %}"><i class="bi bi-receipt"></i> Billing</a></li>
     {% if session.role == 'admin' %}
     <li class="nav-label">Admin</li>
     <li class="nav-item"><a href="{{ url_for('auth.users') }}" class="nav-link {% if request.endpoint=='auth.users' %}active{% endif %}"><i class="bi bi-shield-person"></i> Users</a></li>

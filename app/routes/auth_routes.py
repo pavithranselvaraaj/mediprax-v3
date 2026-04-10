@@ -1,8 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from ..database import get_db
 from ..utils.password_utils import hash_password, verify_password
+from ..utils.validators import validate_nonempty, validate_role
 import sqlite3
-from datetime import date
 
 auth_routes = Blueprint('auth', __name__)
 
@@ -43,8 +43,11 @@ def admin_required(f):
 def login():
     if _login_ok(): return redirect(url_for('auth.dashboard'))
     if request.method == 'POST':
-        un = request.form.get('username','').strip()
+        un = (request.form.get('username') or '').strip()
         pw = request.form.get('password','')
+        if not validate_nonempty(un, 3):
+            flash('Enter a valid username.','danger')
+            return render_template('login.html')
         db = get_db()
         user = db.execute('SELECT * FROM users WHERE username=?',(un,)).fetchone()
         if user and verify_password(pw, user['password_hash']):
@@ -70,6 +73,7 @@ def login():
 def logout():
     session.clear(); return redirect(url_for('auth.login'))
 
+# Simplified dashboard: show only recent patients and recent visits
 @auth_routes.route('/dashboard')
 @login_required
 def dashboard():
@@ -77,43 +81,51 @@ def dashboard():
         return redirect(url_for('patients.patient_detail', pid=session['patient_id']))
     hid = session['hospital_id']
     db  = get_db()
-    today_str = date.today().isoformat()
-    stats = {
-        'total_patients': db.execute('SELECT COUNT(*) FROM patients WHERE hospital_id=?',(hid,)).fetchone()[0],
-        'opd_today':      db.execute("SELECT COUNT(*) FROM visits WHERE hospital_id=? AND visit_date=? AND visit_type='OPD'",(hid,today_str)).fetchone()[0],
-        'ipd_admitted':   db.execute("SELECT COUNT(*) FROM admissions WHERE hospital_id=? AND status='admitted'",(hid,)).fetchone()[0],
-        'beds_available': db.execute("SELECT COUNT(*) FROM beds WHERE hospital_id=? AND status='available'",(hid,)).fetchone()[0],
-        'total_visits':   db.execute('SELECT COUNT(*) FROM visits WHERE hospital_id=?',(hid,)).fetchone()[0],
-        'appts_today':    db.execute("SELECT COUNT(*) FROM appointments WHERE hospital_id=? AND appt_date=?",(hid,today_str)).fetchone()[0],
-        'pending_bills':  db.execute("SELECT COUNT(*) FROM bills WHERE hospital_id=? AND payment_status='pending'",(hid,)).fetchone()[0],
-        'lab_pending':    db.execute("SELECT COUNT(*) FROM lab_orders WHERE hospital_id=? AND status='pending'",(hid,)).fetchone()[0],
-    }
-    recent_patients = [dict(r) for r in db.execute(
-        'SELECT * FROM patients WHERE hospital_id=? ORDER BY id DESC LIMIT 6',(hid,)).fetchall()]
-    recent_visits = [dict(r) for r in db.execute('''
-        SELECT v.id,v.patient_id,v.visit_date,v.visit_type,v.primary_diagnosis,
-               v.complaints,v.token_no,p.name AS patient_name
-        FROM visits v JOIN patients p ON v.patient_id=p.id
-        WHERE v.hospital_id=? ORDER BY v.id DESC LIMIT 6''',(hid,)).fetchall()]
-    admitted = [dict(r) for r in db.execute('''
-        SELECT a.*,p.name AS patient_name,p.phone AS patient_phone,
-               w.name AS ward_name,b.bed_number
-        FROM admissions a JOIN patients p ON a.patient_id=p.id
-        LEFT JOIN wards w ON a.ward_id=w.id LEFT JOIN beds b ON a.bed_id=b.id
-        WHERE a.hospital_id=? AND a.status='admitted'
-        ORDER BY a.id DESC LIMIT 8''',(hid,)).fetchall()]
-    followups = []
+    from datetime import date
+    today = date.today().isoformat()
+
+    # Stats with default handling
     try:
-        followups = [dict(r) for r in db.execute('''
-            SELECT v.*,p.name AS patient_name,p.phone AS patient_phone
+        total_patients = db.execute('SELECT COUNT(*) FROM patients WHERE hospital_id=?',(hid,)).fetchone()[0] or 0
+    except:
+        total_patients = 0
+    try:
+        total_visits = db.execute('SELECT COUNT(*) FROM visits WHERE hospital_id=?',(hid,)).fetchone()[0] or 0
+    except:
+        total_visits = 0
+    try:
+        today_appointments = db.execute('SELECT COUNT(*) FROM appointments WHERE hospital_id=? AND appt_date=?',(hid,today)).fetchone()[0] or 0
+    except:
+        today_appointments = 0
+    try:
+        today_opd = db.execute("SELECT COUNT(*) FROM visits WHERE hospital_id=? AND visit_date=? AND visit_type='OPD'",(hid,today)).fetchone()[0] or 0
+    except:
+        today_opd = 0
+
+    stats = {
+        'total_patients': total_patients,
+        'total_visits': total_visits,
+        'today_appointments': today_appointments,
+        'today_opd': today_opd,
+    }
+
+    # Lists
+    try:
+        recent_patients = [dict(r) for r in db.execute(
+            'SELECT id,name,uhid,patient_type,phone FROM patients WHERE hospital_id=? ORDER BY id DESC LIMIT 8',(hid,)).fetchall()]
+    except:
+        recent_patients = []
+
+    try:
+        recent_visits = [dict(r) for r in db.execute('''
+            SELECT v.id,v.patient_id,v.visit_date,v.visit_type,v.primary_diagnosis,
+                   v.complaints,v.token_no,p.name AS patient_name
             FROM visits v JOIN patients p ON v.patient_id=p.id
-            WHERE v.hospital_id=? AND DATE(v.followup_date)<=DATE('now')
-              AND DATE(v.followup_date)>=DATE('now','-30 days')
-            ORDER BY v.followup_date LIMIT 8''',(hid,)).fetchall()]
-    except Exception: pass
-    return render_template('dashboard.html', stats=stats,
-                           recent_patients=recent_patients, recent_visits=recent_visits,
-                           admitted_patients=admitted, followups=followups, today_date=today_str)
+            WHERE v.hospital_id=? ORDER BY v.id DESC LIMIT 10''',(hid,)).fetchall()]
+    except:
+        recent_visits = []
+
+    return render_template('dashboard.html', stats=stats, recent_patients=recent_patients, recent_visits=recent_visits)
 
 @auth_routes.route('/change-password', methods=['GET','POST'])
 @login_required
@@ -147,13 +159,20 @@ def add_user():
     hid = session['hospital_id']
     db  = get_db()
     role = request.form.get('role','nurse')
+    if not validate_role(role):
+        flash('Invalid role.','danger'); return redirect(url_for('auth.users'))
+    username = (request.form.get('username') or '').strip()
+    name     = (request.form.get('name') or '').strip()
+    if not validate_nonempty(username, 3) or not validate_nonempty(name, 2):
+        flash('Provide valid username and name.','danger'); return redirect(url_for('auth.users'))
     pid  = request.form.get('patient_id',type=int) if role=='patient' else None
     try:
+        pw = (request.form.get('password') or 'demo').strip() or 'demo'
         db.execute('INSERT INTO users (hospital_id,username,password_hash,role,name,patient_id) VALUES (?,?,?,?,?,?)',
-            [hid,request.form['username'].strip(),hash_password(request.form.get('password','demo')),
-             role,request.form['name'].strip(),pid])
+            [hid,username,hash_password(pw),role,name,pid])
         db.commit(); flash("User created.",'success')
-    except sqlite3.IntegrityError: flash('Username exists.','danger')
+    except sqlite3.IntegrityError:
+        flash('Username exists.','danger')
     return redirect(url_for('auth.users'))
 
 @auth_routes.route('/users/<int:uid>/delete', methods=['POST'])

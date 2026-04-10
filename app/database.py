@@ -1,4 +1,4 @@
-import sqlite3, hashlib, os
+import sqlite3, hashlib
 from flask import g, current_app
 
 def get_db():
@@ -27,7 +27,7 @@ def init_db(app):
         db.executescript("""
         CREATE TABLE IF NOT EXISTS super_admins(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE,
             password_hash TEXT NOT NULL,
             name TEXT DEFAULT 'Super Admin',
             is_active INTEGER DEFAULT 1,
@@ -205,6 +205,20 @@ def init_db(app):
         """)
 
         # Migrate old columns
+        # Ensure super_admins has required columns
+        sa_cols = {r[1] for r in db.execute('PRAGMA table_info(super_admins)')}
+        if 'email' not in sa_cols:
+            _col(db, 'super_admins', 'email', 'TEXT')
+        if 'name' not in sa_cols:
+            _col(db, 'super_admins', 'name', "TEXT DEFAULT 'Super Admin'")
+        if 'is_active' not in sa_cols:
+            _col(db, 'super_admins', 'is_active', 'INTEGER DEFAULT 1')
+        # Backfill email from username if legacy column exists
+        sa_cols = {r[1] for r in db.execute('PRAGMA table_info(super_admins)')}
+        if 'username' in sa_cols and 'email' in sa_cols:
+            db.execute("UPDATE super_admins SET email=username WHERE (email IS NULL OR email='') AND username IS NOT NULL")
+
+        # Migrate old columns
         for col, typ in [('hospital_id','INTEGER DEFAULT 1'),('org_id','TEXT'),
                 ('uhid','TEXT'),('guardian_relation','TEXT'),
                 ('emergency_contact','TEXT'),('emergency_phone','TEXT'),
@@ -225,16 +239,32 @@ def init_db(app):
                 ('advice','TEXT'),('followup_notes','TEXT'),
                 ('height','INTEGER'),('blood_sugar','REAL'),
                 ('notes','TEXT'),('created_at','TIMESTAMP'),
-                ('visit_date',"DATE DEFAULT (date('now'))")]:
+                ('visit_date',"DATE DEFAULT (date('now'))"),
+                ('prescription_image','TEXT')]:
             _col(db, 'visits', col, typ)
         for t in ('appointments','lab_orders','bills','pharmacy','admissions'):
             _col(db, t, 'hospital_id', 'INTEGER DEFAULT 1')
         _col(db, 'hospitals', 'org_id', 'TEXT')
 
-        # Default super admin
-        if db.execute('SELECT COUNT(*) FROM super_admins').fetchone()[0] == 0:
-            db.execute('INSERT INTO super_admins (email,password_hash,name) VALUES (?,?,?)',
-                       ('pavithranmks22@gmail.com', _h('demo'), 'Pavithran'))
+        # Ensure default super admin account (pavithranmks22@gmail.com / demo)
+        sa_email = 'pavithranmks22@gmail.com'
+        sa_cols = {r[1] for r in db.execute('PRAGMA table_info(super_admins)')}
+        existing_sa = db.execute('SELECT id FROM super_admins WHERE email=?',(sa_email,)).fetchone()
+        if not existing_sa:
+            # Also check legacy username column
+            if 'username' in sa_cols:
+                existing_sa = db.execute('SELECT id FROM super_admins WHERE username=?',(sa_email,)).fetchone()
+        if not existing_sa:
+            if 'username' in sa_cols:
+                db.execute('INSERT INTO super_admins (username,email,password_hash,name,is_active) VALUES (?,?,?,?,?)',
+                           (sa_email, sa_email, _h('demo'), 'Pavithran', 1))
+            else:
+                db.execute('INSERT INTO super_admins (email,password_hash,name,is_active) VALUES (?,?,?,?)',
+                           (sa_email, _h('demo'), 'Pavithran', 1))
+        else:
+            # Ensure password is set and account is active
+            db.execute('UPDATE super_admins SET password_hash=?, is_active=1 WHERE id=?',
+                       (_h('demo'), existing_sa['id']))
 
         # Default hospital + settings + ward + beds
         if db.execute('SELECT COUNT(*) FROM hospitals').fetchone()[0] == 0:
@@ -245,16 +275,16 @@ def init_db(app):
                 db.execute("INSERT INTO beds (hospital_id,ward_id,bed_number,status) VALUES (1,?,?,?)",(wid,f'B{i:03d}','available'))
 
         # Auto org_id for any hospital missing it
-        for h in db.execute("SELECT id FROM hospitals WHERE org_id IS NULL OR org_id=''").fetchall():
+        for h in db.execute("SELECT id FROM hospitals WHERE org_id IS NULL OR org_id='' ").fetchall():
             db.execute("UPDATE hospitals SET org_id=? WHERE id=?",(f'ORG-{h["id"]:03d}',h['id']))
 
-        # Auto UHID for patients
-        for p in db.execute("SELECT id,hospital_id FROM patients WHERE uhid IS NULL OR uhid=''").fetchall():
+        # Auto UHID org binding for patients
+        for p in db.execute("SELECT id,hospital_id FROM patients WHERE uhid IS NULL OR uhid='' ").fetchall():
             db.execute("UPDATE patients SET uhid=?,org_id=? WHERE id=?",
                        (f'PT-{p["hospital_id"]:02d}-{p["id"]:05d}',
                         f'ORG-{p["hospital_id"]:03d}',p['id']))
 
-        # Default hospital user
+        # Ensure at least one hospital user
         if db.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 0:
             db.execute("INSERT INTO users (hospital_id,username,password_hash,role,name) VALUES (1,'admin',?,'admin','Hospital Admin')",(_h('demo'),))
 
