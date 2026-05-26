@@ -17,20 +17,25 @@ def _age(dob):
     try:
         d = datetime.strptime(dob,'%Y-%m-%d').date(); t = date.today()
         return t.year-d.year-((t.month,t.day)<(d.month,d.day))
-    except: return None
+    except Exception:
+        return None
 
 def _safe(row, keys):
     if not row: return {k:None for k in keys}
     d = {}
     for k in keys:
-        try: d[k] = row[k]
-        except: d[k] = None
+        try:
+            val = row[k]
+            # Normalize legacy string 'None' values stored in DB
+            if isinstance(val, str) and val.strip().lower() == 'none':
+                val = None
+            d[k] = val
+        except Exception:
+            d[k] = None
     return d
 
-def _next_uhid(db, hid):
-    r = db.execute('SELECT MAX(id) FROM patients WHERE hospital_id=?',(hid,)).fetchone()[0]
-    n = (r or 0) + 1
-    return f'PT-{hid:02d}-{n:05d}'
+def _build_uhid(hid, pid):
+    return f'PT-{hid:02d}-{pid:05d}'
 
 PKEYS = ['id','hospital_id','org_id','uhid','name','dob','age','gender',
          'guardian_name','guardian_relation','emergency_contact','emergency_phone',
@@ -96,18 +101,18 @@ def add_patient_view():
         emergency_phone = (f.get('emergency_phone') or '').strip()
         if emergency_phone and not validate_phone(emergency_phone):
             flash('Emergency phone must be a valid 10-digit Indian mobile number.','danger'); return render_template('patient_form.html', patient=f, action='Add')
-        uhid = _next_uhid(db, hid)
         org_id = db.execute('SELECT org_id FROM hospitals WHERE id=?',(hid,)).fetchone()['org_id']
-        db.execute('''INSERT INTO patients
+        emergency_phone_n = normalize_phone(emergency_phone) or emergency_phone
+        cur = db.execute('''INSERT INTO patients
             (hospital_id,org_id,uhid,name,dob,age,gender,guardian_name,guardian_relation,
              emergency_contact,emergency_phone,insurance,insurance_no,blood_group,height_cm,
              address,city,state,phone,email,individual_number,occupation,marital_status,
              nationality,comorbidity,known_allergies,past_medical_history,past_surgical_history,
              family_history,habits,patient_type)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', [
-            hid,org_id,uhid,name,dob,age,gender,
+            hid,org_id,None,name,dob,age,gender,
             (f.get('guardian_name') or '').strip(),(f.get('guardian_relation') or '').strip(),
-            (f.get('emergency_contact') or '').strip(),(f.get('emergency_phone') or '').strip(),
+            (f.get('emergency_contact') or '').strip(), emergency_phone_n,
             (f.get('insurance') or '').strip(),(f.get('insurance_no') or '').strip(),
             f.get('blood_group'), safe_int(f.get('height_cm'), default=None, min_val=30, max_val=250),
             (f.get('address') or '').strip(),(f.get('city') or '').strip(),(f.get('state') or '').strip(),
@@ -119,6 +124,9 @@ def add_patient_view():
             (f.get('family_history') or '').strip(),(f.get('habits') or '').strip(),
             f.get('patient_type','OPD')
         ])
+        # Generate UHID from the actual row id (race-free, deletion-stable)
+        uhid = _build_uhid(hid, cur.lastrowid)
+        db.execute('UPDATE patients SET uhid=? WHERE id=?', (uhid, cur.lastrowid))
         db.commit()
         try:
             from silent_backup import backup; backup()
@@ -177,6 +185,7 @@ def edit_patient(pid):
         emergency_phone = (f.get('emergency_phone') or '').strip()
         if emergency_phone and not validate_phone(emergency_phone):
             flash('Emergency phone must be a valid 10-digit Indian mobile number.','danger'); return render_template('patient_form.html', patient=patient, action='Edit')
+        emergency_phone_n = normalize_phone(emergency_phone) or emergency_phone
         db.execute('''UPDATE patients SET
             name=?,dob=?,age=?,gender=?,guardian_name=?,guardian_relation=?,
             emergency_contact=?,emergency_phone=?,insurance=?,insurance_no=?,
@@ -187,7 +196,7 @@ def edit_patient(pid):
             updated_at=CURRENT_TIMESTAMP WHERE id=? AND hospital_id=?''', [
             name,dob,age,f.get('gender'),
             (f.get('guardian_name') or '').strip(),(f.get('guardian_relation') or '').strip(),
-            (f.get('emergency_contact') or '').strip(),(f.get('emergency_phone') or '').strip(),
+            (f.get('emergency_contact') or '').strip(), emergency_phone_n,
             (f.get('insurance') or '').strip(),(f.get('insurance_no') or '').strip(),
             f.get('blood_group'), safe_int(f.get('height_cm'), default=None, min_val=30, max_val=250),
             (f.get('address') or '').strip(),(f.get('city') or '').strip(),(f.get('state') or '').strip(),
@@ -207,11 +216,22 @@ def edit_patient(pid):
 
 @patient_routes.route('/api')
 def patients_api():
-    if not _ok(): return jsonify([])
-    hid = _hid(); q = request.args.get('q','').strip(); db = get_db()
+    """Patient typeahead. Always capped at 20 rows; empty q returns most-recent."""
+    if not _ok():
+        return jsonify({'ok': False, 'error': 'unauthorized', 'results': []}), 401
+    hid = _hid()
+    q = request.args.get('q', '').strip()
+    db = get_db()
     if q:
-        rows = db.execute('SELECT id,name,uhid,phone,blood_group,age,gender FROM patients WHERE hospital_id=? AND (name LIKE ? OR uhid LIKE ? OR phone LIKE ?) ORDER BY name LIMIT 20',
-                          (hid,f'%{q}%',f'%{q}%',f'%{q}%')).fetchall()
+        like = f'%{q}%'
+        rows = db.execute(
+            'SELECT id,name,uhid,phone,blood_group,age,gender FROM patients '
+            'WHERE hospital_id=? AND (name LIKE ? OR uhid LIKE ? OR phone LIKE ?) '
+            'ORDER BY name LIMIT 20',
+            (hid, like, like, like)).fetchall()
     else:
-        rows = db.execute('SELECT id,name,uhid,phone,blood_group,age,gender FROM patients WHERE hospital_id=? ORDER BY name',(hid,)).fetchall()
-    return jsonify([dict(r) for r in rows])
+        rows = db.execute(
+            'SELECT id,name,uhid,phone,blood_group,age,gender FROM patients '
+            'WHERE hospital_id=? ORDER BY id DESC LIMIT 20',
+            (hid,)).fetchall()
+    return jsonify({'ok': True, 'results': [dict(r) for r in rows]})

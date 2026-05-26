@@ -7,39 +7,53 @@
     <div class="card h-100">
       <div class="card-header fw-semibold text-primary"><i class="bi bi-plus-circle me-2"></i>New Appointment</div>
       <div class="card-body">
-        <form id="appt-form">
-          <div class="mb-2">
-            <label class="form-label small fw-semibold">Patient ID</label>
-            <input type="number" min="1" class="form-control" name="patient_id" placeholder="Existing Patient ID (optional)">
+        <form id="appt-form" autocomplete="off">
+          <div class="mb-2 position-relative">
+            <label class="form-label small fw-semibold" for="appt-patient-search">Patient</label>
+            <input type="text" id="appt-patient-search" class="form-control" placeholder="Search by name, UHID, phone…" aria-label="Search patient" aria-autocomplete="list">
+            <input type="hidden" name="patient_id" id="appt-patient-id">
+            <div class="ac-box" id="appt-patient-ac" role="listbox" aria-label="Patient suggestions"></div>
+            <small class="text-muted" id="appt-patient-hint">Optional — leave blank for walk-in.</small>
           </div>
           <div class="mb-2">
-            <label class="form-label small fw-semibold">Date <span class="text-danger">*</span></label>
-            <input type="date" class="form-control" name="date" required>
+            <label class="form-label small fw-semibold" for="appt-date">Date <span class="text-danger" aria-label="required">*</span></label>
+            <input type="date" id="appt-date" class="form-control" name="date" required>
           </div>
           <div class="mb-2">
-            <label class="form-label small fw-semibold">Time</label>
-            <input type="time" class="form-control" name="time">
+            <label class="form-label small fw-semibold" for="appt-time">Time</label>
+            <input type="time" id="appt-time" class="form-control" name="time">
           </div>
           <div class="mb-2">
-            <label class="form-label small fw-semibold">Reason</label>
-            <input type="text" class="form-control" name="reason" maxlength="120" placeholder="Reason (optional)">
+            <label class="form-label small fw-semibold" for="appt-reason">Reason</label>
+            <input type="text" id="appt-reason" class="form-control" name="reason" maxlength="120" placeholder="Reason (optional)">
           </div>
           <div class="d-flex gap-2">
-            <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg me-1"></i>Create</button>
+            <button class="btn btn-primary" type="submit" id="appt-submit"><i class="bi bi-check-lg me-1"></i>Create</button>
             <a href="{{ url_for('auth.dashboard') }}" class="btn btn-outline-secondary">← Dashboard</a>
           </div>
+          <div class="inline-error" id="appt-error" role="alert" aria-live="polite"></div>
         </form>
       </div>
     </div>
   </div>
   <div class="col-lg-8">
-    <div class="card h-100">
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold text-primary"><i class="bi bi-calendar-week me-2"></i>Calendar</span>
+        <small class="text-muted">Drag a day to jump to it</small>
+      </div>
+      <div class="card-body">
+        <div id="calendar" style="min-height:380px"></div>
+      </div>
+    </div>
+    <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="fw-semibold text-primary"><i class="bi bi-list-ul me-2"></i>All Appointments</span>
         <span class="badge" style="background:#e0f0ff;color:#1a6fad">{{ appts|length }}</span>
       </div>
       <div class="card-body p-0">
         {% if appts %}
+        <div class="table-responsive">
         <table class="table table-hover mb-0">
           <thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Reason</th><th>Status</th><th></th></tr></thead>
           <tbody>
@@ -61,7 +75,7 @@
             </td>
             <td>
               <div class="dropdown">
-                <button class="btn btn-sm btn-outline-secondary py-0 px-2 dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                <button class="btn btn-sm btn-outline-secondary py-0 px-2 dropdown-toggle" data-bs-toggle="dropdown" aria-label="Appointment actions"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
                 <ul class="dropdown-menu dropdown-menu-end">
                   {% if a.status == 'scheduled' %}
                   <li><a class="dropdown-item" href="#" onclick="updateStatus({{ a.id }}, 'completed')"><i class="bi bi-check-circle me-2 text-success"></i>Mark Completed</a></li>
@@ -78,6 +92,7 @@
           {% endfor %}
           </tbody>
         </table>
+        </div>
         {% else %}
         <p class="text-muted text-center py-4"><i class="bi bi-calendar-x" style="font-size:2rem;opacity:.4"></i><br>No appointments yet</p>
         {% endif %}
@@ -85,24 +100,134 @@
     </div>
   </div>
 </div>
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 <script>
-  document.getElementById('appt-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const payload = Object.fromEntries(fd.entries());
-    const r = await fetch('{{ url_for('appointments.create') }}', { method:'POST', body: new URLSearchParams(payload) });
-    const j = await r.json();
-    if (r.ok) { location.reload(); } else { alert(j.error || 'Failed'); }
-  });
-  async function updateStatus(id, status) {
-    if (status === 'cancelled' && !confirm('Cancel this appointment?')) return;
-    const r = await fetch('/appointments/' + id + '/status', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: 'status=' + status
-    });
-    if (r.ok) location.reload();
-    else alert('Failed to update');
+(function () {
+  const form     = document.getElementById('appt-form');
+  const errBox   = document.getElementById('appt-error');
+  const submit   = document.getElementById('appt-submit');
+  const search   = document.getElementById('appt-patient-search');
+  const acBox    = document.getElementById('appt-patient-ac');
+  const hiddenId = document.getElementById('appt-patient-id');
+  const hint     = document.getElementById('appt-patient-hint');
+
+  function showError(msg) {
+    errBox.textContent = msg;
+    errBox.classList.add('show');
   }
+  function clearError() {
+    errBox.textContent = '';
+    errBox.classList.remove('show');
+  }
+
+  // Patient typeahead
+  let acTimer;
+  function renderAc(items) {
+    if (!items.length) { acBox.style.display = 'none'; acBox.innerHTML = ''; return; }
+    acBox.innerHTML = items.map(p => `
+      <div class="ac-item" role="option" data-id="${p.id}" data-name="${(p.name||'').replace(/"/g,'&quot;')}">
+        <div style="font-weight:600">${p.name || '—'} <span class="text-muted small">${p.uhid || ''}</span></div>
+        <div class="text-muted" style="font-size:.72rem">${p.phone || ''} ${p.age ? '· '+p.age+'y' : ''} ${p.gender ? '· '+p.gender : ''}</div>
+      </div>`).join('');
+    acBox.style.display = 'block';
+    acBox.querySelectorAll('.ac-item').forEach(el => {
+      el.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        hiddenId.value = el.dataset.id;
+        search.value = el.dataset.name;
+        hint.textContent = 'Selected: ' + el.dataset.name + ' (ID ' + el.dataset.id + ')';
+        acBox.style.display = 'none';
+      });
+    });
+  }
+  search.addEventListener('input', () => {
+    hiddenId.value = '';
+    hint.textContent = 'Optional — leave blank for walk-in.';
+    clearTimeout(acTimer);
+    const q = search.value.trim();
+    if (!q) { acBox.style.display = 'none'; return; }
+    acTimer = setTimeout(async () => {
+      try {
+        const r = await fetch('/patients/api?q=' + encodeURIComponent(q), {headers: {'Accept': 'application/json'}});
+        if (!r.ok) { acBox.style.display = 'none'; return; }
+        const j = await r.json();
+        renderAc(j.results || []);
+      } catch (_) { acBox.style.display = 'none'; }
+    }, 200);
+  });
+  document.addEventListener('click', (e) => {
+    if (!acBox.contains(e.target) && e.target !== search) acBox.style.display = 'none';
+  });
+
+  // Create appointment via AJAX
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearError();
+    submit.disabled = true;
+    const original = submit.innerHTML;
+    submit.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Creating…';
+    try {
+      const fd = new FormData(form);
+      const r = await fetch(form.action || '{{ url_for('appointments.create') }}', {
+        method: 'POST',
+        headers: {'X-CSRFToken': window.CSRF_TOKEN || '', 'Accept': 'application/json'},
+        body: new URLSearchParams(fd)
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) {
+        showError(j.error || 'Failed to create appointment.');
+        submit.disabled = false;
+        submit.innerHTML = original;
+        return;
+      }
+      // Reload to show the new row in correct sort order with server-rendered status badge
+      location.reload();
+    } catch (err) {
+      showError('Network error. Please try again.');
+      submit.disabled = false;
+      submit.innerHTML = original;
+    }
+  });
+
+  // Status updates
+  window.updateStatus = async function (id, status) {
+    if (status === 'cancelled' && !confirm('Cancel this appointment?')) return;
+    try {
+      const r = await fetch('/appointments/' + id + '/status', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': window.CSRF_TOKEN || '', 'Accept': 'application/json'},
+        body: 'status=' + encodeURIComponent(status)
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { showError(j.error || 'Failed to update.'); return; }
+      location.reload();
+    } catch (_) { showError('Network error.'); }
+  };
+
+  // FullCalendar
+  const calEl = document.getElementById('calendar');
+  if (calEl && window.FullCalendar) {
+    const cal = new FullCalendar.Calendar(calEl, {
+      initialView: 'dayGridMonth',
+      height: 380,
+      headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listWeek' },
+      events: '/appointments/api',
+      eventDisplay: 'block',
+      dateClick: function (info) {
+        document.getElementById('appt-date').value = info.dateStr;
+        document.getElementById('appt-date').focus();
+      },
+      eventClick: function (info) {
+        const p = info.event.extendedProps || {};
+        const parts = [info.event.title];
+        if (p.status) parts.push('Status: ' + p.status);
+        if (p.reason) parts.push('Reason: ' + p.reason);
+        alert(parts.join('\n'));
+      },
+    });
+    cal.render();
+  }
+})();
 </script>
 {% endblock %}

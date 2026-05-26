@@ -29,7 +29,7 @@
             <td><input type="number" name="quantity[]" class="form-control form-control-sm qty" value="1" min="1" step="0.5" oninput="calcRow(this)"/></td>
             <td><input type="number" name="unit_price[]" class="form-control form-control-sm price" value="0" step="0.01" oninput="calcRow(this)"/></td>
             <td><input type="number" class="form-control form-control-sm amount" value="0" readonly style="background:#f8f8f8"/></td>
-            <td><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="removeRow(this)"><i class="bi bi-x"></i></button></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="removeRow(this)" aria-label="Remove row" title="Remove row"><i class="bi bi-x" aria-hidden="true"></i></button></td>
           </tr>
         </tbody>
       </table>
@@ -62,7 +62,7 @@
 const catOptions='{% for c in ["Consultation","Procedure","Lab","Medicine","Room","Nursing","Other"] %}<option value="{{ c }}">{{ c }}</option>{% endfor %}';
 function addRow(){
   const tr=document.createElement('tr');tr.className='item-row';
-  tr.innerHTML=`<td><select name="category[]" class="form-select form-select-sm">${catOptions}</select></td><td><input type="text" name="description[]" class="form-control form-control-sm" placeholder="Description"/></td><td><input type="number" name="quantity[]" class="form-control form-control-sm qty" value="1" min="1" step="0.5" oninput="calcRow(this)"/></td><td><input type="number" name="unit_price[]" class="form-control form-control-sm price" value="0" step="0.01" oninput="calcRow(this)"/></td><td><input type="number" class="form-control form-control-sm amount" value="0" readonly style="background:#f8f8f8"/></td><td><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="removeRow(this)"><i class="bi bi-x"></i></button></td>`;
+  tr.innerHTML=`<td><select name="category[]" class="form-select form-select-sm">${catOptions}</select></td><td><input type="text" name="description[]" class="form-control form-control-sm" placeholder="Description"/></td><td><input type="number" name="quantity[]" class="form-control form-control-sm qty" value="1" min="1" step="0.5" oninput="calcRow(this)"/></td><td><input type="number" name="unit_price[]" class="form-control form-control-sm price" value="0" step="0.01" oninput="calcRow(this)"/></td><td><input type="number" class="form-control form-control-sm amount" value="0" readonly style="background:#f8f8f8"/></td><td><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="removeRow(this)" aria-label="Remove row" title="Remove row"><i class="bi bi-x" aria-hidden="true"></i></button></td>`;
   document.getElementById('itemsBody').appendChild(tr);
 }
 function removeRow(btn){const row=btn.closest('tr');if(document.querySelectorAll('.item-row').length>1)row.remove();calcTotal();}

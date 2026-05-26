@@ -47,8 +47,14 @@ def _sv(v):
           'prescription_image']
     d = {}
     for k in keys:
-        try: d[k] = v[k]
-        except: d[k] = None
+        try:
+            val = v[k]
+            # Normalize accidental string 'None' values coming from legacy rows
+            if isinstance(val, str) and val.strip().lower() == 'none':
+                val = None
+            d[k] = val
+        except Exception:
+            d[k] = None
     return d
 
 def _next_token(db, hid):
@@ -81,7 +87,12 @@ def add_visit(pid):
                 flash('Invalid doctor selected.','danger'); return render_template('visit_form.html', patient=patient, visit=None, doctors=[dict(d) for d in doctors], today=date.today().isoformat(), now_time=datetime.now().strftime('%H:%M'), next_token=_next_token(db,hid))
         def _i(k, mn=None, mx=None): return safe_int(f.get(k), default=None, min_val=mn, max_val=mx)
         def _r(k, mn=None, mx=None): return safe_float(f.get(k), default=None, min_val=mn, max_val=mx)
-        def _s(k): v=(f.get(k) or '').strip(); return v if v else None
+        def _s(k):
+            v=(f.get(k) or '').strip()
+            # Treat string 'none' (case-insensitive) as empty
+            if v.lower() == 'none':
+                return None
+            return v if v else None
         # Handle prescription image upload
         rx_image = _save_prescription_image(request.files.get('prescription_image'), hid, pid)
         db.execute('''INSERT INTO visits
@@ -139,7 +150,11 @@ def edit_visit(pid, vid):
                 flash('Invalid doctor selected.','danger'); return render_template('visit_form.html', patient=patient, visit=_sv(raw_visit), doctors=[dict(d) for d in doctors], today=date.today().isoformat(), now_time=datetime.now().strftime('%H:%M'))
         def _i(k, mn=None, mx=None): return safe_int(f.get(k), default=None, min_val=mn, max_val=mx)
         def _r(k, mn=None, mx=None): return safe_float(f.get(k), default=None, min_val=mn, max_val=mx)
-        def _s(k): v=(f.get(k) or '').strip(); return v if v else None
+        def _s(k):
+            v=(f.get(k) or '').strip()
+            if v.lower() == 'none':
+                return None
+            return v if v else None
         # Handle prescription image
         old_image = raw_visit['prescription_image'] if 'prescription_image' in raw_visit.keys() else None
         new_image_file = request.files.get('prescription_image')
@@ -202,7 +217,8 @@ def print_prescription(pid, vid):
         try:
             d = dt.strptime(dob,'%Y-%m-%d').date(); t = date.today()
             return t.year-d.year-((t.month,t.day)<(d.month,d.day))
-        except: return None
+        except Exception:
+            return None
     pt = {k:(patient[k] if k in patient.keys() else None)
           for k in ['id','name','age','gender','blood_group','comorbidity',
                     'dob','known_allergies','uhid','org_id','individual_number','phone']}
@@ -212,7 +228,15 @@ def print_prescription(pid, vid):
           'advice','notes','bp_systolic','bp_diastolic','pulse','temperature',
           'weight','height','spo2','rr','blood_sugar','followup_date','followup_notes',
           'prescription_image']
-    visit = {k:(raw_visit[k] if k in raw_visit.keys() else None) for k in keys}
+    visit = {}
+    for k in keys:
+        try:
+            val = raw_visit[k]
+            if isinstance(val, str) and val.strip().lower() == 'none':
+                val = None
+            visit[k] = val
+        except Exception:
+            visit[k] = None
     return render_template('prescription.html', patient=pt,
                            display_age=calc_age(pt['dob']) or pt['age'],
                            visit=visit, doctor=doctor,

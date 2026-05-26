@@ -71,4 +71,5 @@ body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;background:#fff;max-w
 </div>
 <button class="print-btn no-print" onclick="window.print()">🖨 Print / PDF</button>
 <a href="javascript:history.back()" class="no-print" style="position:fixed;bottom:20px;left:20px;background:#fff;color:{{ hospital.color1 }};border:1.5px solid {{ hospital.color1 }};border-radius:50px;padding:10px 20px;text-decoration:none;font-size:.85rem">← Back</a>
+{% include '_csrf.html' %}
 </body></html>

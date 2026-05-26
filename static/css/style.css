@@ -93,4 +93,14 @@ body { margin:0; font-family:'Segoe UI',sans-serif; background:#f4f7fb; }
   #sidebar.open { transform: none; }
   #topbar, #main { margin-left: 0; }
   .sa-banner { margin-left: 0; }
+  /* Wrap tables that aren't already in .table-responsive so they scroll
+     horizontally on narrow viewports instead of overflowing the layout. */
+  .card-body > .table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
+
+/* ── Inline error pill (used by AJAX flows) ───────────── */
+.inline-error { display:none; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; border-radius:8px; padding:.4rem .7rem; font-size:.82rem; margin-top:.5rem; }
+.inline-error.show { display:block; }
+
+/* ── Focus visibility for keyboard users ──────────────── */
+.btn:focus-visible, .form-control:focus-visible, .form-select:focus-visible, a:focus-visible { outline:2px solid #1a6fad; outline-offset:2px; }

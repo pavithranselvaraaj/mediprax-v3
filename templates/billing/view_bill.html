@@ -88,5 +88,6 @@
   <a href="{{ url_for('billing.bill_list') }}" class="btn btn-sm btn-outline-primary" style="border-radius:8px">All Bills</a>
   <button onclick="window.print()" class="btn btn-sm btn-primary" style="border-radius:8px"><i class="bi bi-printer me-1"></i>Print / PDF</button>
 </div>
+{% include '_csrf.html' %}
 </body>
 </html>

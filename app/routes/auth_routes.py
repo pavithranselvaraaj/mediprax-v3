@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from ..database import get_db
-from ..utils.password_utils import hash_password, verify_password
-from ..utils.validators import validate_nonempty, validate_role
+from ..utils.password_utils import hash_password, verify_password, needs_rehash
+from ..utils.validators import validate_nonempty, validate_role, validate_password
 import sqlite3
 
 auth_routes = Blueprint('auth', __name__)
@@ -55,6 +55,14 @@ def login():
             if not hosp or not hosp['is_active']:
                 flash('This hospital account is inactive.','danger')
                 return render_template('login.html')
+            # Upgrade legacy SHA-256 hashes to bcrypt on successful login
+            if needs_rehash(user['password_hash']):
+                try:
+                    db.execute('UPDATE users SET password_hash=? WHERE id=?',
+                               (hash_password(pw), user['id']))
+                    db.commit()
+                except Exception:
+                    pass
             session.update({
                 'user_id':    user['id'],
                 'username':   user['username'],
@@ -87,19 +95,19 @@ def dashboard():
     # Stats with default handling
     try:
         total_patients = db.execute('SELECT COUNT(*) FROM patients WHERE hospital_id=?',(hid,)).fetchone()[0] or 0
-    except:
+    except Exception:
         total_patients = 0
     try:
         total_visits = db.execute('SELECT COUNT(*) FROM visits WHERE hospital_id=?',(hid,)).fetchone()[0] or 0
-    except:
+    except Exception:
         total_visits = 0
     try:
         today_appointments = db.execute('SELECT COUNT(*) FROM appointments WHERE hospital_id=? AND appt_date=?',(hid,today)).fetchone()[0] or 0
-    except:
+    except Exception:
         today_appointments = 0
     try:
         today_opd = db.execute("SELECT COUNT(*) FROM visits WHERE hospital_id=? AND visit_date=? AND visit_type='OPD'",(hid,today)).fetchone()[0] or 0
-    except:
+    except Exception:
         today_opd = 0
 
     stats = {
@@ -113,7 +121,7 @@ def dashboard():
     try:
         recent_patients = [dict(r) for r in db.execute(
             'SELECT id,name,uhid,patient_type,phone FROM patients WHERE hospital_id=? ORDER BY id DESC LIMIT 8',(hid,)).fetchall()]
-    except:
+    except Exception:
         recent_patients = []
 
     try:
@@ -122,7 +130,7 @@ def dashboard():
                    v.complaints,v.token_no,p.name AS patient_name
             FROM visits v JOIN patients p ON v.patient_id=p.id
             WHERE v.hospital_id=? ORDER BY v.id DESC LIMIT 10''',(hid,)).fetchall()]
-    except:
+    except Exception:
         recent_visits = []
 
     return render_template('dashboard.html', stats=stats, recent_patients=recent_patients, recent_visits=recent_visits)
@@ -137,8 +145,8 @@ def change_password():
         user = db.execute('SELECT * FROM users WHERE id=?',(session['user_id'],)).fetchone()
         if not verify_password(old, user['password_hash']):
             flash('Current password incorrect.','danger')
-        elif len(new) < 4:
-            flash('Min 4 characters.','danger')
+        elif not validate_password(new, min_len=6):
+            flash('Password must be at least 6 characters.','danger')
         else:
             db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(new),session['user_id']))
             db.commit(); flash('Password changed.','success')
@@ -165,9 +173,17 @@ def add_user():
     name     = (request.form.get('name') or '').strip()
     if not validate_nonempty(username, 3) or not validate_nonempty(name, 2):
         flash('Provide valid username and name.','danger'); return redirect(url_for('auth.users'))
-    pid  = request.form.get('patient_id',type=int) if role=='patient' else None
+    pid = request.form.get('patient_id', type=int) if role == 'patient' else None
+    # Validate patient_id belongs to the same hospital
+    if role == 'patient':
+        if not pid or not db.execute('SELECT 1 FROM patients WHERE id=? AND hospital_id=?', (pid, hid)).fetchone():
+            flash('Select a valid patient from this hospital.', 'danger')
+            return redirect(url_for('auth.users'))
+    pw = (request.form.get('password') or '').strip()
+    if not validate_password(pw, min_len=6):
+        flash('Password must be at least 6 characters.', 'danger')
+        return redirect(url_for('auth.users'))
     try:
-        pw = (request.form.get('password') or 'demo').strip() or 'demo'
         db.execute('INSERT INTO users (hospital_id,username,password_hash,role,name,patient_id) VALUES (?,?,?,?,?,?)',
             [hid,username,hash_password(pw),role,name,pid])
         db.commit(); flash("User created.",'success')
@@ -190,7 +206,8 @@ def delete_user(uid):
 @admin_required
 def reset_password(uid):
     pw = request.form.get('new_password','').strip()
-    if len(pw) < 4: flash('Min 4 chars.','danger')
+    if not validate_password(pw, min_len=6):
+        flash('Password must be at least 6 characters.','danger')
     else:
         db = get_db()
         db.execute('UPDATE users SET password_hash=? WHERE id=? AND hospital_id=?',

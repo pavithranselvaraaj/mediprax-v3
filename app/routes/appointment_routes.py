@@ -18,51 +18,103 @@ def appointments():
         LEFT JOIN patients p ON a.patient_id=p.id WHERE a.hospital_id=? ORDER BY a.appt_date DESC, a.id DESC''',(hid,)).fetchall()
     return render_template('appointments.html', appts=[dict(r) for r in rows])
 
+_APPT_COLOR = {
+    'scheduled': '#1a6fad',
+    'completed': '#2e7d32',
+    'cancelled': '#9ca3af',
+    'no_show':   '#d97706',
+}
+
+
 @appointment_routes.route('/api')
 def api():
-    if not _ok(): return jsonify([])
-    hid = _hid(); db = get_db()
-    rows = db.execute('''SELECT a.*,p.name AS patient_name FROM appointments a
-        LEFT JOIN patients p ON a.patient_id=p.id WHERE a.hospital_id=?''',(hid,)).fetchall()
-    return jsonify([{'id':r['id'],'title':f"{r['patient_name'] or 'Unknown'}",
-                     'start':r['appt_date'],'color':'#1a6fad'} for r in rows])
+    if not _ok():
+        return jsonify({'ok': False, 'error': 'unauthorized', 'results': []}), 401
+    hid = _hid()
+    db = get_db()
+    rows = db.execute(
+        '''SELECT a.*, p.name AS patient_name FROM appointments a
+           LEFT JOIN patients p ON a.patient_id=p.id
+           WHERE a.hospital_id=? ORDER BY a.appt_date, a.appt_time''',
+        (hid,)).fetchall()
+
+    def _start(r):
+        d = r['appt_date'] or ''
+        t = (r['appt_time'] or '').strip()
+        return f"{d}T{t}" if d and t else d
+
+    events = [{
+        'id':       r['id'],
+        'title':    r['patient_name'] or 'Unknown',
+        'start':    _start(r),
+        'color':    _APPT_COLOR.get(r['status'], '#1a6fad'),
+        'extendedProps': {
+            'status':    r['status'],
+            'reason':    r['reason'],
+            'patientId': r['patient_id'],
+        },
+    } for r in rows]
+    return jsonify(events)
 
 @appointment_routes.route('/', methods=['POST'])
 def create():
-    if not _ok(): return jsonify({'error':'unauthorized'}),401
-    hid = _hid(); data = request.json or request.form; db = get_db()
+    if not _ok():
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
+    hid = _hid()
+    data = request.get_json(silent=True) or request.form
+    db = get_db()
     appt_date = data.get('date') or data.get('appt_date')
     if not appt_date or not validate_date(appt_date):
-        return jsonify({'error':'Valid date is required (YYYY-MM-DD)'}),400
+        return jsonify({'ok': False, 'error': 'Valid date is required (YYYY-MM-DD)'}), 400
     appt_time = data.get('time') or data.get('appt_time') or ''
     if appt_time and not validate_time(appt_time):
-        return jsonify({'error':'Invalid time format (HH:MM)'}),400
+        return jsonify({'ok': False, 'error': 'Invalid time format (HH:MM)'}), 400
     pid = safe_int(data.get('patient_id'), default=None, min_val=1)
+    patient_name = None
     if pid:
-        ok = db.execute('SELECT 1 FROM patients WHERE id=? AND hospital_id=?',(pid,hid)).fetchone()
-        if not ok:
-            return jsonify({'error':'Patient not found in this hospital'}),400
-    reason = (data.get('reason') or '').strip()[:120]  # Max 120 chars
-    db.execute('INSERT INTO appointments (hospital_id,patient_id,appt_date,appt_time,reason,status) VALUES (?,?,?,?,?,?)',
-               (hid,pid,appt_date,appt_time,reason,'scheduled'))
+        row = db.execute('SELECT name FROM patients WHERE id=? AND hospital_id=?', (pid, hid)).fetchone()
+        if not row:
+            return jsonify({'ok': False, 'error': 'Patient not found in this hospital'}), 400
+        patient_name = row['name']
+    reason = (data.get('reason') or '').strip()[:120]
+    cur = db.execute(
+        'INSERT INTO appointments (hospital_id,patient_id,appt_date,appt_time,reason,status) '
+        'VALUES (?,?,?,?,?,?)',
+        (hid, pid, appt_date, appt_time, reason, 'scheduled'))
     db.commit()
-    return jsonify({'status':'created'})
+    return jsonify({
+        'ok': True,
+        'appointment': {
+            'id':           cur.lastrowid,
+            'patient_id':   pid,
+            'patient_name': patient_name,
+            'appt_date':    appt_date,
+            'appt_time':    appt_time,
+            'reason':       reason,
+            'status':       'scheduled',
+        },
+    }), 201
+
 
 @appointment_routes.route('/<int:appt_id>/status', methods=['POST'])
 def update_status(appt_id):
-    if not _ok(): return jsonify({'error':'unauthorized'}),401
-    if not _rw(): return jsonify({'error':'No permission'}),403
-    hid = _hid(); db = get_db()
-    status = request.form.get('status','').strip()
+    if not _ok():
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
+    if not _rw():
+        return jsonify({'ok': False, 'error': 'No permission'}), 403
+    hid = _hid()
+    db = get_db()
+    status = (request.form.get('status') or (request.get_json(silent=True) or {}).get('status') or '').strip()
     if status not in VALID_STATUSES:
-        return jsonify({'error':'Invalid status'}),400
-    # Check appointment belongs to this hospital
-    appt = db.execute('SELECT id FROM appointments WHERE id=? AND hospital_id=?',(appt_id,hid)).fetchone()
+        return jsonify({'ok': False, 'error': 'Invalid status'}), 400
+    appt = db.execute(
+        'SELECT id FROM appointments WHERE id=? AND hospital_id=?', (appt_id, hid)).fetchone()
     if not appt:
-        return jsonify({'error':'Appointment not found'}),404
-    db.execute('UPDATE appointments SET status=? WHERE id=? AND hospital_id=?',(status,appt_id,hid))
+        return jsonify({'ok': False, 'error': 'Appointment not found'}), 404
+    db.execute('UPDATE appointments SET status=? WHERE id=? AND hospital_id=?',
+               (status, appt_id, hid))
     db.commit()
-    return jsonify({'status':'updated'})
+    return jsonify({'ok': True, 'id': appt_id, 'status': status})
 
 @appointment_routes.route('/<int:appt_id>/delete', methods=['POST'])
 def delete_appointment(appt_id):

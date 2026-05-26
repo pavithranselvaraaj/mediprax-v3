@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify
 from ..database import get_db
+from ..utils.validators import safe_float
 from datetime import date
 
 pharmacy_routes = Blueprint('pharmacy', __name__, url_prefix='/pharmacy')
@@ -59,9 +60,9 @@ def dispense(pid):
 
         for i, med in enumerate(medicines):
             if not med.strip(): continue
-            qty = float(quantities[i]) if i < len(quantities) and quantities[i] else 1
-            unit = units[i] if i < len(units) else 'Tablets'
-            price = float(prices[i]) if i < len(prices) and prices[i] else 0
+            qty   = safe_float(quantities[i] if i < len(quantities) else None, default=1.0, min_val=0)
+            unit  = units[i] if i < len(units) else 'Tablets'
+            price = safe_float(prices[i] if i < len(prices) else None, default=0.0, min_val=0)
 
             db.execute('''INSERT INTO pharmacy 
                 (hospital_id, patient_id, visit_id, medicine, quantity, unit, price)
@@ -69,6 +70,10 @@ def dispense(pid):
                 [hid, pid, visit_id, med.strip(), qty, unit, price])
 
         db.commit()
+        try:
+            from silent_backup import backup; backup()
+        except Exception:
+            pass
         flash('Medicines dispensed.', 'success')
         return redirect(url_for('patients.patient_detail', pid=pid))
 

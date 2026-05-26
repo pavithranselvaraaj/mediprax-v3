@@ -1,11 +1,18 @@
-import sqlite3, hashlib
+import sqlite3  # noqa: F401  (used for IntegrityError catch below)
 from flask import g, current_app
+from .utils.password_utils import hash_password as _h
 
 def get_db():
     if 'db' not in g:
         g.db = sqlite3.connect(current_app.config['DATABASE'])
         g.db.row_factory = sqlite3.Row
         g.db.execute('PRAGMA foreign_keys = ON')
+        # Concurrent reads while a writer is active; reduces 'database is locked'
+        try:
+            g.db.execute('PRAGMA journal_mode = WAL')
+            g.db.execute('PRAGMA synchronous = NORMAL')
+        except Exception:
+            pass
     return g.db
 
 def _col(db, table, col, typ):
@@ -14,8 +21,6 @@ def _col(db, table, col, typ):
         if col not in cols:
             db.execute(f'ALTER TABLE {table} ADD COLUMN {col} {typ}')
     except Exception: pass
-
-def _h(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
 def init_db(app):
     @app.teardown_appcontext
@@ -216,7 +221,12 @@ def init_db(app):
         # Backfill email from username if legacy column exists
         sa_cols = {r[1] for r in db.execute('PRAGMA table_info(super_admins)')}
         if 'username' in sa_cols and 'email' in sa_cols:
-            db.execute("UPDATE super_admins SET email=username WHERE (email IS NULL OR email='') AND username IS NOT NULL")
+            # Backfill row-by-row so a UNIQUE conflict on one row doesn't abort all
+            for r in db.execute("SELECT id, username FROM super_admins WHERE (email IS NULL OR email='') AND username IS NOT NULL").fetchall():
+                try:
+                    db.execute('UPDATE super_admins SET email=? WHERE id=?', (r['username'], r['id']))
+                except sqlite3.IntegrityError:
+                    pass
 
         # Migrate old columns
         for col, typ in [('hospital_id','INTEGER DEFAULT 1'),('org_id','TEXT'),
@@ -261,10 +271,9 @@ def init_db(app):
             else:
                 db.execute('INSERT INTO super_admins (email,password_hash,name,is_active) VALUES (?,?,?,?)',
                            (sa_email, _h('demo'), 'Pavithran', 1))
-        else:
-            # Ensure password is set and account is active
-            db.execute('UPDATE super_admins SET password_hash=?, is_active=1 WHERE id=?',
-                       (_h('demo'), existing_sa['id']))
+        # NOTE: We intentionally do NOT reset the password of an existing super
+        # admin on every boot. Doing so would silently revert any password the
+        # admin set themselves and is a backdoor.
 
         # Default hospital + settings + ward + beds
         if db.execute('SELECT COUNT(*) FROM hospitals').fetchone()[0] == 0:
@@ -287,6 +296,33 @@ def init_db(app):
         # Ensure at least one hospital user
         if db.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 0:
             db.execute("INSERT INTO users (hospital_id,username,password_hash,role,name) VALUES (1,'admin',?,'admin','Hospital Admin')",(_h('demo'),))
+
+        # Performance indexes (created idempotently). Sized for read-heavy hot paths.
+        for ddl in [
+            'CREATE INDEX IF NOT EXISTS idx_users_username        ON users(username)',
+            'CREATE INDEX IF NOT EXISTS idx_users_hospital        ON users(hospital_id)',
+            'CREATE INDEX IF NOT EXISTS idx_patients_hospital     ON patients(hospital_id)',
+            'CREATE INDEX IF NOT EXISTS idx_patients_uhid         ON patients(uhid)',
+            'CREATE INDEX IF NOT EXISTS idx_patients_phone        ON patients(phone)',
+            'CREATE INDEX IF NOT EXISTS idx_visits_hospital_date  ON visits(hospital_id, visit_date)',
+            'CREATE INDEX IF NOT EXISTS idx_visits_patient        ON visits(patient_id)',
+            'CREATE INDEX IF NOT EXISTS idx_appts_hospital_date   ON appointments(hospital_id, appt_date)',
+            'CREATE INDEX IF NOT EXISTS idx_appts_patient         ON appointments(patient_id)',
+            'CREATE INDEX IF NOT EXISTS idx_bills_hospital_date   ON bills(hospital_id, bill_date)',
+            'CREATE INDEX IF NOT EXISTS idx_bill_items_bill       ON bill_items(bill_id)',
+            'CREATE INDEX IF NOT EXISTS idx_lab_orders_hospital   ON lab_orders(hospital_id)',
+            'CREATE INDEX IF NOT EXISTS idx_lab_tests_order       ON lab_tests(lab_order_id)',
+            'CREATE INDEX IF NOT EXISTS idx_admissions_hospital   ON admissions(hospital_id)',
+            'CREATE INDEX IF NOT EXISTS idx_admissions_patient    ON admissions(patient_id)',
+            'CREATE INDEX IF NOT EXISTS idx_admissions_bed        ON admissions(bed_id)',
+            'CREATE INDEX IF NOT EXISTS idx_beds_ward             ON beds(ward_id)',
+            'CREATE INDEX IF NOT EXISTS idx_pharmacy_patient      ON pharmacy(patient_id)',
+            'CREATE INDEX IF NOT EXISTS idx_pharmacy_hospital     ON pharmacy(hospital_id)',
+        ]:
+            try:
+                db.execute(ddl)
+            except Exception:
+                pass
 
         db.commit()
         print('[DB] Mediprax initialised OK')

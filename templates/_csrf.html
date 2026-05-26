@@ -1,0 +1,31 @@
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<script>
+(function () {
+  var meta = document.querySelector('meta[name="csrf-token"]');
+  if (!meta) return;
+  window.CSRF_TOKEN = meta.getAttribute('content');
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (!f || f.tagName !== 'FORM') return;
+    var m = (f.getAttribute('method') || '').toLowerCase();
+    if (m !== 'post') return;
+    // Auto-attach the CSRF token to every POST form
+    if (!f.querySelector('input[name="csrf_token"]')) {
+      var i = document.createElement('input');
+      i.type = 'hidden';
+      i.name = 'csrf_token';
+      i.value = window.CSRF_TOKEN;
+      f.appendChild(i);
+    }
+    // Prevent double-submit: disable submit buttons after first click
+    var btns = f.querySelectorAll('button[type="submit"], input[type="submit"]');
+    btns.forEach(function (b) {
+      if (b.disabled) return;
+      b.dataset._origLabel = b.innerHTML;
+      b.disabled = true;
+      // Re-enable after 6s as a safety net (e.g. if navigation is cancelled)
+      setTimeout(function () { b.disabled = false; }, 6000);
+    });
+  }, true);
+})();
+</script>

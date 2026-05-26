@@ -1,5 +1,6 @@
 from flask import Blueprint, request, render_template, redirect, url_for, session, flash, jsonify
 from ..database import get_db
+from ..utils.validators import safe_float, safe_int
 from datetime import date
 
 billing_routes = Blueprint('billing', __name__, url_prefix='/billing')
@@ -8,9 +9,8 @@ def _hid(): return session.get('hospital_id', 1)
 def _login(): return 'user_id' in session and 'hospital_id' in session
 def _can_write(): return session.get('role') in ('admin','doctor')
 
-def _next_bill_no(db, hid):
-    count = db.execute('SELECT COUNT(*) FROM bills WHERE hospital_id=?', (hid,)).fetchone()[0]
-    return f"BILL-{hid:02d}-{count+1:05d}"
+def _build_bill_no(hid, bill_id):
+    return f"BILL-{hid:02d}-{bill_id:05d}"
 
 # ── Bill list ────────────────────────────────────────────────
 
@@ -69,20 +69,19 @@ def create_bill(pid):
 
     if request.method == 'POST':
         f = request.form
-        bill_no = _next_bill_no(db, hid)
 
-        # Parse items from form
+        # Parse items from form (robust against malformed numeric input)
         descriptions = request.form.getlist('description[]')
         categories   = request.form.getlist('category[]')
         quantities   = request.form.getlist('quantity[]')
         unit_prices  = request.form.getlist('unit_price[]')
 
         items = []
-        subtotal = 0
+        subtotal = 0.0
         for i, desc in enumerate(descriptions):
             if not desc.strip(): continue
-            qty   = float(quantities[i]) if i < len(quantities) else 1
-            price = float(unit_prices[i]) if i < len(unit_prices) else 0
+            qty   = safe_float(quantities[i] if i < len(quantities) else None, default=1.0, min_val=0)
+            price = safe_float(unit_prices[i] if i < len(unit_prices) else None, default=0.0, min_val=0)
             amt   = qty * price
             subtotal += amt
             items.append({
@@ -93,18 +92,19 @@ def create_bill(pid):
                 'amount':     amt,
             })
 
-        discount = float(f.get('discount','0') or 0)
-        tax      = float(f.get('tax','0') or 0)
-        total    = subtotal - discount + tax
-        paid     = float(f.get('paid_amount','0') or 0)
+        discount = safe_float(f.get('discount'), default=0.0, min_val=0)
+        tax      = safe_float(f.get('tax'),      default=0.0, min_val=0)
+        total    = max(0.0, subtotal - discount + tax)
+        paid     = safe_float(f.get('paid_amount'), default=0.0, min_val=0)
 
-        if paid >= total:
+        if paid >= total and total > 0:
             pstatus = 'paid'
         elif paid > 0:
             pstatus = 'partial'
         else:
-            pstatus = 'pending'
+            pstatus = 'pending' if total > 0 else 'paid'
 
+        # Insert with empty bill_no first, then derive from lastrowid (race-free)
         cur = db.execute('''INSERT INTO bills
             (hospital_id,patient_id,visit_id,admission_id,bill_no,bill_date,bill_type,
              subtotal,discount,tax,total,paid_amount,payment_mode,payment_status,notes,created_by)
@@ -112,20 +112,25 @@ def create_bill(pid):
             hid, pid,
             f.get('visit_id', type=int) or None,
             f.get('admission_id', type=int) or None,
-            bill_no, date.today().isoformat(),
+            None, date.today().isoformat(),
             f.get('bill_type','OPD'),
             subtotal, discount, tax, total, paid,
             f.get('payment_mode','Cash'), pstatus,
-            f.get('notes','').strip(),
+            (f.get('notes') or '').strip(),
             session['user_id']
         ])
         bill_id = cur.lastrowid
+        bill_no = _build_bill_no(hid, bill_id)
+        db.execute('UPDATE bills SET bill_no=? WHERE id=?', (bill_no, bill_id))
         for item in items:
             db.execute('''INSERT INTO bill_items (bill_id,category,description,quantity,unit_price,amount)
                 VALUES (?,?,?,?,?,?)''', [bill_id, item['category'], item['description'],
                 item['quantity'], item['unit_price'], item['amount']])
         db.commit()
-        from silent_backup import backup; backup()
+        try:
+            from silent_backup import backup; backup()
+        except Exception:
+            pass
         flash(f'Bill created: {bill_no}', 'success')
         return redirect(url_for('billing.view_bill', bill_id=bill_id))
 
@@ -175,17 +180,24 @@ def update_payment(bill_id):
     hid    = _hid()
     db     = get_db()
     bill   = db.execute('SELECT * FROM bills WHERE id=? AND hospital_id=?', (bill_id,hid)).fetchone()
-    paid   = float(request.form.get('paid_amount','0') or 0)
+    if not bill:
+        flash('Bill not found.', 'danger')
+        return redirect(url_for('billing.bill_list'))
+    paid   = safe_float(request.form.get('paid_amount'), default=0.0, min_val=0)
     mode   = request.form.get('payment_mode','Cash')
-    if paid >= bill['total']:
+    total  = float(bill['total'] or 0)
+    if paid >= total and total > 0:
         status = 'paid'
     elif paid > 0:
         status = 'partial'
     else:
-        status = 'pending'
+        status = 'pending' if total > 0 else 'paid'
     db.execute('UPDATE bills SET paid_amount=?,payment_mode=?,payment_status=? WHERE id=? AND hospital_id=?',
                (paid, mode, status, bill_id, hid))
     db.commit()
-    from silent_backup import backup; backup()
+    try:
+        from silent_backup import backup; backup()
+    except Exception:
+        pass
     flash('Payment updated.', 'success')
     return redirect(url_for('billing.view_bill', bill_id=bill_id))

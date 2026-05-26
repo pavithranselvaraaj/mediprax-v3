@@ -1,6 +1,9 @@
-from flask import Flask, session
+from flask import Flask, session, request, jsonify
 import os
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from .database import init_db, get_db
+
+csrf = CSRFProtect()
 from .routes.auth_routes        import auth_routes
 from .routes.patient_routes     import patient_routes
 from .routes.visit_routes       import visit_routes
@@ -25,10 +28,38 @@ def create_app():
 
     init_db(app)
 
+    # CSRF: protect all POSTs by default. JSON endpoints can opt out via @csrf.exempt.
+    csrf.init_app(app)
+
     for bp in [auth_routes, patient_routes, visit_routes, appointment_routes,
                lab_routes, pharmacy_routes, ai_routes, settings_routes, super_admin_routes,
                billing_routes, ipd_routes]:
         app.register_blueprint(bp)
+
+    def _wants_json():
+        # Treat /api/ paths and explicit Accept: application/json as JSON clients
+        if request.path.startswith('/ai/') or '/api' in request.path:
+            return True
+        accept = (request.accept_mimetypes.best or '') if request.accept_mimetypes else ''
+        return accept == 'application/json'
+
+    @app.errorhandler(404)
+    def _not_found(e):
+        if _wants_json():
+            return jsonify({'ok': False, 'error': 'not_found'}), 404
+        return e, 404
+
+    @app.errorhandler(500)
+    def _server_error(e):
+        if _wants_json():
+            return jsonify({'ok': False, 'error': 'server_error'}), 500
+        return e, 500
+
+    @app.errorhandler(CSRFError)
+    def _csrf_error(e):
+        if _wants_json():
+            return jsonify({'ok': False, 'error': 'csrf_failed', 'reason': e.description}), 400
+        return ('CSRF validation failed: ' + (e.description or ''), 400)
 
     @app.context_processor
     def inject_hospital():

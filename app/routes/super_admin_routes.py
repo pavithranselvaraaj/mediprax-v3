@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from ..database import get_db
-import hashlib, re
+from ..utils.password_utils import hash_password, verify_password, needs_rehash
+from ..utils.validators import validate_password
+import re, sqlite3, secrets
 
 super_admin_routes = Blueprint('super_admin', __name__, url_prefix='/admin')
 
-def _h(pw): return hashlib.sha256(pw.encode()).hexdigest()
+def _h(pw): return hash_password(pw)
 def _email_ok(e): return bool(re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', e.strip()))
 
 def _sa(f):
@@ -30,12 +32,22 @@ def sa_login():
         # Support both email column and legacy username column
         cols = {r[1] for r in db.execute('PRAGMA table_info(super_admins)')}
         if 'email' in cols:
-            row = db.execute('SELECT * FROM super_admins WHERE email=? AND password_hash=? AND is_active=1',
-                             (email, _h(pw))).fetchone()
+            row = db.execute('SELECT * FROM super_admins WHERE email=? AND is_active=1',
+                             (email,)).fetchone()
         else:
-            row = db.execute('SELECT * FROM super_admins WHERE username=? AND password_hash=?',
-                             (email, _h(pw))).fetchone()
+            row = db.execute('SELECT * FROM super_admins WHERE username=?',
+                             (email,)).fetchone()
+        if row and not verify_password(pw, row['password_hash']):
+            row = None
         if row:
+            # Upgrade legacy hash on successful login
+            if needs_rehash(row['password_hash']):
+                try:
+                    db.execute('UPDATE super_admins SET password_hash=? WHERE id=?',
+                               (hash_password(pw), row['id']))
+                    db.commit()
+                except Exception:
+                    pass
             session.clear()
             session['role']     = 'super_admin'
             session['sa_id']    = row['id']
@@ -108,18 +120,29 @@ def create_hospital():
             db.execute('INSERT INTO beds (hospital_id,ward_id,bed_number,status) VALUES (?,?,?,?)',
                        (hid,wid,f'B{i:03d}','available'))
         un = f.get('admin_username','').strip()
-        pw = f.get('admin_password','demo').strip() or 'demo'
+        pw_in = (f.get('admin_password') or '').strip()
         nm = f.get('admin_name','Hospital Admin').strip()
+        # If no password supplied, generate a strong random one and surface it once
+        pw_generated = False
+        if not validate_password(pw_in, min_len=6):
+            pw_in = secrets.token_urlsafe(9)
+            pw_generated = True
         if un:
             try:
                 db.execute('INSERT INTO users (hospital_id,username,password_hash,role,name) VALUES (?,?,?,?,?)',
-                           [hid,un,_h(pw),'admin',nm])
+                           [hid,un,_h(pw_in),'admin',nm])
             except Exception:
                 db.rollback()
                 flash(f'Username "{un}" already taken.','danger')
                 return redirect(url_for('super_admin.create_hospital'))
         db.commit()
-        flash(f'Hospital created! Org ID: {org_id}  |  Login: {un} / {pw}','success')
+        if pw_generated and un:
+            flash(f'Hospital created! Org ID: {org_id} | Login: <strong>{un}</strong> / <strong>{pw_in}</strong> '
+                  f'(auto-generated; copy now, it will not be shown again).', 'success')
+        elif un:
+            flash(f'Hospital created! Org ID: {org_id} | Login: {un}', 'success')
+        else:
+            flash(f'Hospital created! Org ID: {org_id}', 'success')
         return redirect(url_for('super_admin.hospital_list'))
     return render_template('admin/create_hospital.html', next_org=f'ORG-{count+1:03d}')
 
@@ -139,17 +162,27 @@ def hospital_detail(hid):
                  f.get('color1','#1a6fad'),f.get('color2','#0e9f8b'),
                  1 if f.get('is_active') else 0,hid]); db.commit(); flash('Updated.','success')
         elif action == 'add_user':
-            try:
-                db.execute('INSERT INTO users (hospital_id,username,password_hash,role,name) VALUES (?,?,?,?,?)',
-                    [hid,f.get('username','').strip(),_h(f.get('password','demo') or 'demo'),
-                     f.get('role','nurse'),f.get('name','').strip()])
-                db.commit(); flash('User created. Default password: demo','success')
-            except Exception: flash('Username already exists.','danger')
+            pw = (f.get('password') or '').strip()
+            if not validate_password(pw, min_len=6):
+                flash('Password must be at least 6 characters.', 'danger')
+            else:
+                try:
+                    db.execute('INSERT INTO users (hospital_id,username,password_hash,role,name) VALUES (?,?,?,?,?)',
+                        [hid, f.get('username','').strip(), _h(pw),
+                         f.get('role','nurse'), f.get('name','').strip()])
+                    db.commit(); flash('User created.', 'success')
+                except Exception:
+                    flash('Username already exists.', 'danger')
         elif action == 'reset_user_pw':
-            uid = f.get('user_id',type=int)
-            if uid:
+            uid = f.get('user_id', type=int)
+            new_pw = (f.get('new_password') or '').strip()
+            if not uid:
+                pass
+            elif not validate_password(new_pw, min_len=6):
+                flash('Password must be at least 6 characters.', 'danger')
+            else:
                 db.execute('UPDATE users SET password_hash=? WHERE id=? AND hospital_id=?',
-                    (_h(f.get('new_password','demo') or 'demo'),uid,hid)); db.commit(); flash('Password reset.','success')
+                    (_h(new_pw), uid, hid)); db.commit(); flash('Password reset.', 'success')
         elif action == 'toggle_active':
             cur = db.execute('SELECT is_active FROM hospitals WHERE id=?',(hid,)).fetchone()
             db.execute('UPDATE hospitals SET is_active=? WHERE id=?',(0 if cur['is_active'] else 1,hid))
@@ -227,13 +260,43 @@ def add_sa():
         flash('Invalid email.','danger')
         return redirect(url_for('super_admin.hospital_list'))
     db = get_db()
-    try:
-        db.execute('INSERT INTO super_admins (email,password_hash,name) VALUES (?,?,?)',
-                   (email, _h('demo'), name))
-        db.commit()
-        flash(f'Added: {email}  |  Default password: demo','success')
-    except Exception:
+    # Inspect legacy/modern schema and ensure we satisfy NOT NULL username if present
+    cols = list(db.execute('PRAGMA table_info(super_admins)'))
+    col_names = {c['name'] for c in cols}
+    # Duplicate check across both email and legacy username
+    if ('email' in col_names and db.execute('SELECT 1 FROM super_admins WHERE LOWER(email)=LOWER(?)',(email,)).fetchone()) \
+       or ('username' in col_names and db.execute('SELECT 1 FROM super_admins WHERE LOWER(username)=LOWER(?)',(email,)).fetchone()):
         flash('Email already exists.','danger')
+        return redirect(url_for('super_admin.hospital_list'))
+    # Build insert dynamically
+    insert_cols = []
+    params = []
+    if 'email' in col_names:
+        insert_cols += ['email']; params += [email]
+    if 'username' in col_names:
+        insert_cols += ['username']; params += [email]
+    # Auto-generate a strong password and surface it once; require admin to reset on first login
+    new_pw = secrets.token_urlsafe(9)
+    insert_cols += ['password_hash','name']
+    params      += [_h(new_pw), name]
+    if 'is_active' in col_names:
+        insert_cols += ['is_active']; params += [1]
+    placeholders = ','.join(['?']*len(insert_cols))
+    sql = f"INSERT INTO super_admins ({','.join(insert_cols)}) VALUES ({placeholders})"
+    try:
+        db.execute(sql, params)
+        db.commit()
+        flash(f'Added <strong>{email}</strong> | Temporary password: <strong>{new_pw}</strong> '
+              f'(copy now, it will not be shown again).', 'success')
+    except sqlite3.IntegrityError as e:
+        # Map specific constraint failures to clearer messages
+        msg = str(e).lower()
+        if 'unique' in msg and ('email' in msg or 'username' in msg):
+            flash('Email already exists.','danger')
+        else:
+            flash('Could not add account due to a database constraint.','danger')
+    except Exception:
+        flash('Unexpected error while adding account.','danger')
     return redirect(url_for('super_admin.hospital_list'))
 
 @super_admin_routes.route('/sa/<int:sid>/toggle', methods=['POST'])
@@ -252,10 +315,13 @@ def toggle_sa(sid):
 @super_admin_routes.route('/sa/<int:sid>/reset', methods=['POST'])
 @_sa
 def reset_sa(sid):
-    pw = request.form.get('new_password','demo').strip() or 'demo'
+    pw = (request.form.get('new_password') or '').strip()
+    if not validate_password(pw, min_len=6):
+        flash('Password must be at least 6 characters.', 'danger')
+        return redirect(url_for('super_admin.hospital_list'))
     db = get_db()
-    db.execute('UPDATE super_admins SET password_hash=? WHERE id=?',(_h(pw),sid))
-    db.commit(); flash('Password reset.','success')
+    db.execute('UPDATE super_admins SET password_hash=? WHERE id=?', (_h(pw), sid))
+    db.commit(); flash('Password reset.', 'success')
     return redirect(url_for('super_admin.hospital_list'))
 
 @super_admin_routes.route('/sa/<int:sid>/delete', methods=['POST'])

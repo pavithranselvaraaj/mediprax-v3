@@ -39,6 +39,7 @@
       </div>
       <div class="card-body p-0">
         {% if recent_patients %}
+        <div class="table-responsive">
         <table class="table table-hover mb-0">
           <thead><tr><th>UHID</th><th>Name</th><th>Type</th><th>Phone</th></tr></thead>
           <tbody>
@@ -56,6 +57,7 @@
           {% endfor %}
           </tbody>
         </table>
+        </div>
         {% else %}<p class="text-muted text-center py-4">No patients yet</p>{% endif %}
       </div>
     </div>
@@ -66,6 +68,7 @@
       <div class="card-header"><span class="fw-semibold text-primary"><i class="bi bi-journal-medical me-2"></i>Recent Visits</span></div>
       <div class="card-body p-0">
         {% if recent_visits %}
+        <div class="table-responsive">
         <table class="table table-hover mb-0">
           <thead><tr><th>Patient</th><th>Date</th><th>Diagnosis</th></tr></thead>
           <tbody>
@@ -79,6 +82,7 @@
           {% endfor %}
           </tbody>
         </table>
+        </div>
         {% else %}<p class="text-muted text-center py-4">No visits yet</p>{% endif %}
       </div>
     </div>

@@ -170,7 +170,7 @@
           <button class="btn btn-sm {% if sa.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}" style="border-radius:7px;font-size:.75rem">{% if sa.is_active %}Disable{% else %}Enable{% endif %}</button>
         </form>
         <form method="POST" action="{{ url_for('super_admin.delete_sa', sid=sa.id) }}" onsubmit="return confirm('Delete this admin?')">
-          <button class="btn btn-sm btn-outline-danger" style="border-radius:7px;font-size:.75rem"><i class="bi bi-trash"></i></button>
+          <button class="btn btn-sm btn-outline-danger" style="border-radius:7px;font-size:.75rem" aria-label="Delete super admin" title="Delete"><i class="bi bi-trash" aria-hidden="true"></i></button>
         </form>
         {% endif %}
       </div>
@@ -187,4 +187,5 @@ document.getElementById('searchBox').addEventListener('input',function(){
   dt=setTimeout(()=>{if(this.value.length===0||this.value.length>=2)this.form.submit();},500);
 });
 </script>
+{% include '_csrf.html' %}
 </body></html>

@@ -75,6 +75,7 @@
     <span class="badge" style="background:#fce8e8;color:#c0392b">{{ admissions|length }}</span>
   </div>
   <div class="card-body p-0">
+    <div class="table-responsive">
     <table class="table table-hover mb-0">
       <thead><tr><th>Admission No</th><th>Ward/Bed</th><th>Admission Date</th><th>Status</th><th>Discharge</th><th></th></tr></thead>
       <tbody>
@@ -98,6 +99,7 @@
       {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 {% endif %}
@@ -150,11 +152,11 @@
           </div>
         </div>
         <div class="visit-actions" onclick="event.stopPropagation()">
-          <a href="{{ url_for('visits.print_prescription', pid=patient.id, vid=v.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2" target="_blank" title="Print"><i class="bi bi-printer"></i></a>
+          <a href="{{ url_for('visits.print_prescription', pid=patient.id, vid=v.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2" target="_blank" rel="noopener" aria-label="Print prescription" title="Print"><i class="bi bi-printer" aria-hidden="true"></i></a>
           {% if session.role in ('admin','doctor') %}
-          <a href="{{ url_for('visits.edit_visit', pid=patient.id, vid=v.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2"><i class="bi bi-pencil"></i></a>
+          <a href="{{ url_for('visits.edit_visit', pid=patient.id, vid=v.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2" aria-label="Edit visit" title="Edit visit"><i class="bi bi-pencil" aria-hidden="true"></i></a>
           <form method="POST" action="{{ url_for('visits.delete_visit', pid=patient.id, vid=v.id) }}" onsubmit="return confirm('Delete?')" style="display:inline">
-            <button class="btn btn-sm btn-outline-danger py-0 px-2"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-sm btn-outline-danger py-0 px-2" aria-label="Delete visit" title="Delete visit"><i class="bi bi-trash" aria-hidden="true"></i></button>
           </form>
           {% endif %}
           <i class="bi bi-chevron-down visit-chevron" id="chev-{{ v.id }}"></i>

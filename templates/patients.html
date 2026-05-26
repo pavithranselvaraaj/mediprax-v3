@@ -19,6 +19,7 @@
   </div>
   <div class="card-body p-0">
     {% if patients %}
+    <div class="table-responsive">
     <table class="table table-hover mb-0">
       <thead><tr><th>UHID</th><th>Name</th><th>Age/Gender</th><th>Phone</th><th>Blood</th><th>Type</th><th>Comorbidity</th><th></th></tr></thead>
       <tbody>
@@ -37,9 +38,9 @@
         <td><small class="text-muted">{{ (p.comorbidity or '—')[:25] }}</small></td>
         <td>
           <div class="d-flex gap-1">
-            <a href="{{ url_for('patients.patient_detail', pid=p.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2"><i class="bi bi-eye"></i></a>
+            <a href="{{ url_for('patients.patient_detail', pid=p.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2" aria-label="View patient" title="View"><i class="bi bi-eye" aria-hidden="true"></i></a>
             {% if session.role in ('admin','doctor') %}
-            <a href="{{ url_for('visits.add_visit', pid=p.id) }}" class="btn btn-sm btn-outline-success py-0 px-2" title="New Visit"><i class="bi bi-plus-circle"></i></a>
+            <a href="{{ url_for('visits.add_visit', pid=p.id) }}" class="btn btn-sm btn-outline-success py-0 px-2" aria-label="New visit" title="New Visit"><i class="bi bi-plus-circle" aria-hidden="true"></i></a>
             {% endif %}
           </div>
         </td>
@@ -47,6 +48,7 @@
       {% endfor %}
       </tbody>
     </table>
+    </div>
     <div class="px-3 py-2 d-flex justify-content-between" style="border-top:1px solid #f0f4f8">
       <small class="text-muted">{{ total }} record(s)</small>
       {% if total_pages > 1 %}

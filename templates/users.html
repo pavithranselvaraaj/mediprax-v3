@@ -10,7 +10,7 @@
         <form method="POST" action="{{ url_for('auth.add_user') }}">
           <div class="mb-2"><label class="form-label small fw-semibold">Full Name</label><input type="text" name="name" class="form-control" required/></div>
           <div class="mb-2"><label class="form-label small fw-semibold">Username</label><input type="text" name="username" class="form-control" required/></div>
-          <div class="mb-2"><label class="form-label small fw-semibold">Password</label><input type="password" name="password" class="form-control" required minlength="4" placeholder="Min 4 chars"/></div>
+          <div class="mb-2"><label class="form-label small fw-semibold">Password</label><input type="password" name="password" class="form-control" required minlength="6" placeholder="Min 6 characters" autocomplete="new-password"/></div>
           <div class="mb-3"><label class="form-label small fw-semibold">Role</label>
             <select name="role" class="form-select">
               <option value="doctor">Doctor (read + write)</option>
@@ -26,6 +26,7 @@
     <div class="card">
       <div class="card-header"><span class="fw-semibold text-primary">All Users ({{ users|length }})</span></div>
       <div class="card-body p-0">
+        <div class="table-responsive">
         <table class="table table-hover mb-0">
           <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Actions</th></tr></thead>
           <tbody>
@@ -42,7 +43,7 @@
                 </form>
                 {% if u.id != session.user_id %}
                 <form method="POST" action="{{ url_for('auth.delete_user', uid=u.id) }}" onsubmit="return confirm('Delete {{ u.username }}?')">
-                  <button class="btn btn-sm btn-outline-danger py-0 px-2"><i class="bi bi-trash"></i></button>
+                  <button class="btn btn-sm btn-outline-danger py-0 px-2" aria-label="Delete user" title="Delete user"><i class="bi bi-trash" aria-hidden="true"></i></button>
                 </form>
                 {% endif %}
               </div>
@@ -51,6 +52,7 @@
           {% endfor %}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
